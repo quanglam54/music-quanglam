@@ -72,6 +72,11 @@
   .searchbox .go{background:var(--accent);color:#191919;font-weight:600;padding:11px 20px;border-radius:12px;
     transition:.18s;font-size:.95rem;flex:none}
   .searchbox .go:hover{background:var(--accent-d)}
+  .searchbox .mic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:var(--muted);flex:none;transition:.16s}
+  .searchbox .mic svg{width:20px;height:20px}
+  .searchbox .mic:hover{color:var(--accent);background:var(--bg3)}
+  .searchbox .mic.listening{color:#fff;background:var(--danger);animation:pulse 1.1s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(217,122,107,.55)}50%{box-shadow:0 0 0 9px rgba(217,122,107,0)}}
   .chips{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
   .chip{background:var(--bg3);border:1px solid var(--line);color:#c7ccd6;border-radius:999px;padding:7px 15px;
     font-size:.84rem;transition:.18s}
@@ -96,9 +101,11 @@
   .vcard:hover .vplay{opacity:1}
   .vplay span{width:52px;height:52px;border-radius:50%;background:var(--accent);color:#191919;display:grid;place-items:center;font-size:1.3rem;padding-left:3px}
   .vfav{position:absolute;top:8px;right:8px;width:36px;height:36px;border-radius:50%;background:rgba(10,12,16,.6);
-    color:#fff;display:grid;place-items:center;font-size:1rem;transition:.16s;backdrop-filter:blur(3px)}
+    color:#fff;display:grid;place-items:center;font-size:1rem;transition:.16s;backdrop-filter:blur(3px);z-index:3}
   .vfav:hover{background:rgba(10,12,16,.85)}
   .vfav.on{color:var(--danger)}
+  /* xem trước khi hover (như YouTube) */
+  .vprev{position:absolute;inset:0;width:100%;height:100%;border:0;z-index:2;background:#000}
   .badge-eq{position:absolute;left:8px;bottom:8px;background:var(--accent);color:#191919;font-size:.66rem;font-weight:700;
     padding:3px 8px;border-radius:6px;letter-spacing:.04em;display:none}
   .vcard.playing .badge-eq{display:block}
@@ -306,6 +313,9 @@
     <form class="searchbox" onsubmit="doSearch(event)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="q" type="text" placeholder="Tìm bài hát, ca sĩ, nhạc TikTok..." autocomplete="off">
+      <button type="button" class="mic" id="micBtn" onclick="voiceSearch()" title="Tìm bằng giọng nói" aria-label="Tìm bằng giọng nói">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
+      </button>
       <button type="submit" class="go">Tìm</button>
       <div class="sugbox" id="sugbox"></div>
     </form>
@@ -548,7 +558,7 @@ function renderDrPlaylists(){
 function hint(ic,a,b){ return '<div class="hint"><div class="big">'+ic+'</div><p>'+a+'<br>'+b+'</p></div>'; }
 function card(s,i){
   const curId=(QUEUE[CUR]||{}).id;
-  return `<div class="vcard ${s.id===curId?'playing':''}" onclick="playFromList('${tab}',${i})">
+  return `<div class="vcard ${s.id===curId?'playing':''}" data-id="${s.id}" onclick="playFromList('${tab}',${i})">
     <div class="vthumb">
       <img src="${s.thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
       <div class="vplay"><span>▶</span></div>
@@ -562,6 +572,7 @@ function card(s,i){
   </div>`;
 }
 function renderList(){
+  clearHover();
   const box=$('list'), lh=$('listHead');
   if(tab==='playlists'){
     lh.innerHTML='<span class="dot">📑</span> Danh sách phát'; lh.style.display='flex';
@@ -618,6 +629,7 @@ function sheetCreate(){ const name=$('newPlName').value.trim(); if(!name){ $('ne
 
 /* ============ QUEUE / PLAY ============ */
 function playFromList(t,i){
+  clearHover();
   const arr=srcArr(t);
   QUEUE = arr.slice();
   CUR = i;
@@ -692,6 +704,43 @@ function backToSearch(){ closePanel(); window.scrollTo({top:0,behavior:'smooth'}
 /* chế độ xem: phóng to (rạp) / toàn màn hình */
 function toggleLarge(){ const v=$('videoWrap'); const on=v.classList.toggle('large'); $('largeLbl').textContent=on?'Thu lại':'Phóng to'; }
 function toggleTheater(){ const on=document.body.classList.toggle('theater'); $('largeLbl').textContent=on?'Bình thường':'Rạp phim'; $('largeBtn').classList.toggle('on',on); }
+
+/* ============ TÌM BẰNG GIỌNG NÓI ============ */
+function voiceSearch(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast('Trình duyệt không hỗ trợ giọng nói — dùng Chrome/Edge nhé'); return; }
+  const rec=new SR(); rec.lang='vi-VN'; rec.interimResults=false; rec.maxAlternatives=1;
+  const btn=$('micBtn');
+  rec.onstart=()=>{ btn.classList.add('listening'); toast('🎤 Đang nghe... nói tên bài hát'); };
+  rec.onresult=e=>{ const txt=e.results[0][0].transcript; $('q').value=txt; hideSug(); runSearch(txt); };
+  rec.onerror=e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed') toast('Cần cho phép dùng micro'); else if(e.error==='no-speech') toast('Không nghe thấy gì, thử lại nhé'); else toast('Lỗi micro, thử lại'); };
+  rec.onend=()=>{ btn.classList.remove('listening'); };
+  try{ rec.start(); }catch(e){ btn.classList.remove('listening'); }
+}
+
+/* ============ XEM TRƯỚC KHI HOVER (như YouTube) ============ */
+let hoverTimer=null, hoverCard=null;
+function clearHover(){ clearTimeout(hoverTimer); if(hoverCard){ const f=hoverCard.querySelector('iframe.vprev'); if(f) f.remove(); hoverCard=null; } }
+function setupHoverPreview(){
+  if(!matchMedia('(hover:hover)').matches) return; // điện thoại không có hover -> bỏ qua
+  const list=$('list');
+  list.addEventListener('mouseover', e=>{
+    const card=e.target.closest('.vcard'); if(!card || card===hoverCard) return;
+    clearHover(); hoverCard=card;
+    hoverTimer=setTimeout(()=>{
+      const id=card.getAttribute('data-id'); if(!id) return;
+      const th=card.querySelector('.vthumb'); if(!th || th.querySelector('iframe.vprev')) return;
+      const f=document.createElement('iframe'); f.className='vprev'; f.allow='autoplay; encrypted-media';
+      f.src='https://www.youtube.com/embed/'+id+'?autoplay=1&mute=1&controls=0&playsinline=1&modestbranding=1&rel=0&disablekb=1';
+      th.appendChild(f);
+    }, 600);
+  });
+  list.addEventListener('mouseout', e=>{
+    const card=e.target.closest('.vcard'); if(!card) return;
+    if(e.relatedTarget && card.contains(e.relatedTarget)) return;
+    if(card===hoverCard) clearHover();
+  });
+}
 function goFullscreen(){
   const v=$('videoWrap');
   if(!document.fullscreenElement){ (v.requestFullscreen||v.webkitRequestFullscreen||v.msRequestFullscreen||function(){}).call(v); }
@@ -768,7 +817,7 @@ window.onYouTubeIframeAPIReady=function(){
 
 /* ============ INIT ============ */
 applyTheme(localStorage.getItem(LS.theme) || 'dark');
-renderChips(); updateKeyState(); renderDrPlaylists(); tab='search'; switchTabUI();
+renderChips(); updateKeyState(); renderDrPlaylists(); tab='search'; switchTabUI(); setupHoverPreview();
 if(getKey()){ loadTrending(); }
 else{ renderList(); setTimeout(openKey, 500); }
 
