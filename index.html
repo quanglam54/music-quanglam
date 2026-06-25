@@ -121,6 +121,60 @@
   .err{background:rgba(217,122,107,.12);border:1px solid rgba(217,122,107,.4);color:#e6a99c;
     padding:14px 16px;border-radius:13px;margin:14px 0;font-size:.9rem}
 
+  /* ===== MENU TRƯỢT (drawer kiểu YouTube) ===== */
+  .burger{font-size:1.3rem}
+  .drawer{position:fixed;inset:0;z-index:70;display:none}
+  .drawer.open{display:block}
+  .drawer-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+  .drawer-panel{position:absolute;left:0;top:0;bottom:0;width:264px;max-width:82vw;background:var(--bg2);
+    border-right:1px solid var(--line);padding:12px 10px 24px;transform:translateX(-100%);transition:transform .3s cubic-bezier(.3,.9,.3,1);
+    overflow-y:auto;box-shadow:8px 0 44px rgba(0,0,0,.5)}
+  .drawer.open .drawer-panel{transform:translateX(0)}
+  .dr-logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:1.18rem;padding:8px 10px 14px}
+  .dr-logo .note{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(150deg,#2b303c,#1b1e26);border:1px solid var(--line);color:var(--accent);font-size:1rem}
+  .dr-item{display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:11px;cursor:pointer;color:#d3d7df;
+    font-size:.96rem;font-weight:500;transition:.14s;width:100%;text-align:left}
+  .dr-item:hover{background:var(--bg3)}
+  .dr-item.on{background:var(--accent-soft);color:var(--accent)}
+  .dr-item .ic{font-size:1.12rem;width:22px;text-align:center;flex:none}
+  .dr-sep{height:1px;background:var(--line);margin:10px 8px}
+  .dr-title{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:8px 14px 4px;font-weight:600}
+  .dr-pl{display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:10px;cursor:pointer;color:#c7ccd6;font-size:.9rem;width:100%;text-align:left}
+  .dr-pl:hover{background:var(--bg3)}
+  .dr-pl .ic{font-size:1rem;flex:none}
+  .dr-pl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ===== BỘ SƯU TẬP PLAYLIST ===== */
+  .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px;padding:16px 0 30px}
+  .plcard{background:var(--bg2);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:.18s}
+  .plcard:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .plcard .cover{aspect-ratio:16/9;background:var(--bg4);position:relative}
+  .plcard .cover img{width:100%;height:100%;object-fit:cover}
+  .plcard .cover .cnt{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.72);color:#fff;font-size:.72rem;padding:3px 9px;border-radius:7px}
+  .plcard .cover .ph{position:absolute;inset:0;display:grid;place-items:center;font-size:2rem;color:var(--muted)}
+  .plcard .pn{padding:11px 13px;font-weight:600;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-new{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--line);
+    border-radius:14px;color:var(--muted);cursor:pointer;min-height:150px;transition:.18s}
+  .pl-new:hover{border-color:var(--accent);color:var(--accent)}
+  .pl-new .plus{font-size:1.9rem}
+  .head-btn{margin-left:auto;display:flex;gap:8px}
+  .head-btn button{background:var(--bg3);border:1px solid var(--line);color:#c7ccd6;border-radius:9px;padding:7px 13px;font-size:.82rem;transition:.16s;display:flex;align-items:center;gap:6px}
+  .head-btn button:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ===== SHEET LƯU VÀO PLAYLIST ===== */
+  .sheet-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;cursor:pointer;color:var(--text);font-size:.95rem;width:100%;text-align:left;transition:.14s}
+  .sheet-item:hover{background:var(--bg3)}
+  .sheet-item .ic{font-size:1.12rem;width:24px;text-align:center;flex:none}
+  .sheet-item.on{color:var(--accent)}
+  .pl-create{display:flex;gap:8px;margin-top:12px}
+  .pl-create input{flex:1;background:var(--bg3);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);outline:none;font-size:.92rem}
+  .pl-create input:focus{border-color:var(--accent)}
+  .pl-create button{background:var(--accent);color:#191919;font-weight:600;padding:0 18px;border-radius:10px}
+
+  /* ===== CHẾ ĐỘ RẠP PHIM ===== */
+  body.theater #npPanel.open .np-body{padding-top:0}
+  body.theater #npPanel.open .video-wrap{max-width:100%;border-radius:0;margin:0 -20px;width:calc(100% + 40px)}
+
   /* ===== NOW PLAYING PANEL ===== */
   #npPanel{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--bg2);border-top:1px solid var(--line);
     transform:translateY(calc(100% - var(--bar-h)));transition:transform .35s cubic-bezier(.3,.9,.3,1);
@@ -159,7 +213,8 @@
   .np-modes{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center}
   .np-modes button{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--line);
     color:#c7ccd6;border-radius:11px;padding:9px 16px;font-size:.85rem;transition:.16s}
-  .np-modes button:hover{border-color:var(--accent);color:var(--accent)}
+  .np-modes button:hover,.np-modes button.on{border-color:var(--accent);color:var(--accent)}
+  .np-modes button.on{background:var(--accent-soft)}
   .np-modes button svg{width:17px;height:17px}
   .np-info{text-align:center;margin:20px 0 6px;max-width:520px;width:100%}
   .np-info h2{font-size:1.3rem;font-weight:600;line-height:1.3}
@@ -221,6 +276,7 @@
 
 <header>
   <div class="hbar">
+    <button class="icon-btn burger" onclick="openDrawer()" title="Menu" aria-label="Menu">☰</button>
     <div class="logo">
       <span class="note">♪</span>
       <div><b>quanglam</b><span>·music</span><small>nghe gì cũng có</small></div>
@@ -230,6 +286,20 @@
     <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()">⚙️</button>
   </div>
 </header>
+
+<!-- MENU TRƯỢT -->
+<div class="drawer" id="drawer">
+  <div class="drawer-bg" onclick="closeDrawer()"></div>
+  <div class="drawer-panel">
+    <div class="dr-logo"><span class="note">♪</span> <div>quanglam<span style="color:var(--accent)">·music</span></div></div>
+    <button class="dr-item" id="nav-search" onclick="nav('search')"><span class="ic">🏠</span> Trang chủ</button>
+    <button class="dr-item" id="nav-hist" onclick="nav('hist')"><span class="ic">🕘</span> Video đã xem</button>
+    <button class="dr-item" id="nav-fav" onclick="nav('fav')"><span class="ic">❤️</span> Yêu thích</button>
+    <div class="dr-sep"></div>
+    <button class="dr-item" id="nav-playlists" onclick="nav('playlists')"><span class="ic">📑</span> Danh sách phát</button>
+    <div id="drPlaylists"></div>
+  </div>
+</div>
 
 <main class="wrap">
   <div class="search-area">
@@ -242,13 +312,7 @@
     <div class="chips" id="chips"></div>
   </div>
 
-  <div class="tabs">
-    <button class="tab on" id="tab-search" onclick="switchTab('search')">Khám phá</button>
-    <button class="tab" id="tab-hist" onclick="switchTab('hist')">Gần đây</button>
-    <button class="tab" id="tab-fav" onclick="switchTab('fav')">Yêu thích</button>
-  </div>
-
-  <div class="list-head" id="listHead" style="display:none"></div>
+  <div class="list-head" id="listHead" style="display:none;margin-top:24px"></div>
   <div class="list" id="list"></div>
 </main>
 
@@ -280,9 +344,9 @@
     </div>
     <div class="video-wrap" id="videoWrap"><div id="yt"></div></div>
     <div class="np-modes">
-      <button id="largeBtn" onclick="toggleLarge()" title="Phóng to / Vừa">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-        <span id="largeLbl">Phóng to</span>
+      <button id="largeBtn" onclick="toggleTheater()" title="Chế độ rạp phim">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
+        <span id="largeLbl">Rạp phim</span>
       </button>
       <button onclick="goFullscreen()" title="Toàn màn hình">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
@@ -329,6 +393,22 @@
   </div>
 </div>
 
+<!-- SHEET: LƯU VÀO PLAYLIST -->
+<div class="modal" id="plSheet">
+  <div class="modal-bg" onclick="closeSheet()"></div>
+  <div class="modal-box">
+    <button class="close" onclick="closeSheet()">✕</button>
+    <div class="sheet-head" id="sheetSong" style="font-weight:600;margin-bottom:10px;font-size:1.05rem;padding-right:30px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button class="sheet-item" onclick="sheetQueue()"><span class="ic">➕</span> Thêm vào hàng chờ</button>
+    <div class="dr-title">Lưu vào playlist</div>
+    <div id="sheetPlaylists"></div>
+    <div class="pl-create">
+      <input id="newPlName" type="text" placeholder="Tên playlist mới..." onkeydown="if(event.key==='Enter')sheetCreate()">
+      <button onclick="sheetCreate()">Tạo</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -339,7 +419,7 @@
 const OWNER_KEY = 'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY';
 /* 👆👆👆 ------------------------------------------------------- 👆👆👆 */
 
-const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme' };
+const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme', playlists:'qlm_playlists' };
 let QUEUE = [];          // danh sách đang phát
 let CUR = -1;            // vị trí hiện tại trong QUEUE
 let lastResults = [];    // kết quả tìm / nhạc xu hướng đang hiển thị
@@ -436,45 +516,105 @@ async function runSearch(q){
   }
 }
 
-/* ============ RENDER LIST ============ */
+/* ============ ĐIỀU HƯỚNG (menu trượt) ============ */
+let curPl = null; // playlist đang xem
+function openDrawer(){ $('drawer').classList.add('open'); }
+function closeDrawer(){ $('drawer').classList.remove('open'); }
 function switchTabUI(){
-  $('tab-search').classList.toggle('on', tab==='search');
-  $('tab-hist').classList.toggle('on', tab==='hist');
-  $('tab-fav').classList.toggle('on', tab==='fav');
+  ['search','hist','fav','playlists'].forEach(k=>{
+    const el=$('nav-'+k); if(el) el.classList.toggle('on', tab===k || (tab==='plview'&&k==='playlists'));
+  });
 }
-function switchTab(t){ tab=t; switchTabUI(); renderList(); }
+function nav(t){ tab=t; if(t!=='plview') curPl=null; switchTabUI(); closeDrawer(); window.scrollTo({top:0,behavior:'smooth'}); renderList(); }
+function switchTab(t){ nav(t); }
 function isFav(id){ return getFavs().some(f=>f.id===id); }
+
+/* ============ PLAYLIST TỰ TẠO ============ */
+function getPlaylists(){ try{ return JSON.parse(localStorage.getItem(LS.playlists)||'[]'); }catch(e){ return []; } }
+function savePlaylists(a){ localStorage.setItem(LS.playlists, JSON.stringify(a)); renderDrPlaylists(); }
+function newId(){ return 'p'+(getPlaylists().reduce((m,p)=>Math.max(m,+String(p.id||'p0').slice(1)||0),0)+1); }
+function createPlaylist(name){ const pls=getPlaylists(); const p={id:newId(),name:(name||'').trim()||('Playlist '+(pls.length+1)),tracks:[]}; pls.unshift(p); savePlaylists(pls); return p; }
+function plById(id){ return getPlaylists().find(p=>p.id===id); }
+function delPlaylist(id){ if(!confirm('Xoá playlist này?')) return; savePlaylists(getPlaylists().filter(p=>p.id!==id)); nav('playlists'); }
+function openPlaylist(id){ curPl=id; tab='plview'; switchTabUI(); closeDrawer(); window.scrollTo({top:0,behavior:'smooth'}); renderList(); }
+function quickCreatePl(){ const name=prompt('Tên playlist mới:'); if(name===null) return; const p=createPlaylist(name); openPlaylist(p.id); }
+function renderDrPlaylists(){
+  const box=$('drPlaylists'); if(!box) return;
+  box.innerHTML = getPlaylists().map(p=>`<button class="dr-pl" onclick="openPlaylist('${p.id}')"><span class="ic">🎵</span><span>${escapeAttr(p.name)}</span></button>`).join('')
+    + `<button class="dr-pl" onclick="closeDrawer();quickCreatePl()"><span class="ic">＋</span><span>Tạo playlist mới</span></button>`;
+}
+
+/* ============ RENDER ============ */
+function hint(ic,a,b){ return '<div class="hint"><div class="big">'+ic+'</div><p>'+a+'<br>'+b+'</p></div>'; }
+function card(s,i){
+  const curId=(QUEUE[CUR]||{}).id;
+  return `<div class="vcard ${s.id===curId?'playing':''}" onclick="playFromList('${tab}',${i})">
+    <div class="vthumb">
+      <img src="${s.thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="vplay"><span>▶</span></div>
+      <span class="badge-eq">♪ Đang phát</span>
+      <button class="vfav ${isFav(s.id)?'on':''}" onclick="event.stopPropagation();toggleFav('${tab}',${i},this)" title="Yêu thích">${isFav(s.id)?'❤':'♡'}</button>
+    </div>
+    <div class="vmeta">
+      <div class="vinfo"><div class="vti">${escapeAttr(s.title)}</div><div class="vch">${escapeAttr(s.channel)}</div></div>
+      <button class="vadd" onclick="event.stopPropagation();openAddMenu('${tab}',${i})" title="Thêm vào...">＋</button>
+    </div>
+  </div>`;
+}
 function renderList(){
-  const box=$('list');
+  const box=$('list'), lh=$('listHead');
+  if(tab==='playlists'){
+    lh.innerHTML='<span class="dot">📑</span> Danh sách phát'; lh.style.display='flex';
+    const pls=getPlaylists(); box.className='pl-grid';
+    box.innerHTML='<div class="pl-new" onclick="quickCreatePl()"><div class="plus">＋</div>Tạo playlist mới</div>'
+      + pls.map(p=>{ const cv=p.tracks[0]?`<img src="${p.tracks[0].thumb}" alt="" onerror="this.style.display='none'">`:'<div class="ph">🎵</div>';
+        return `<div class="plcard" onclick="openPlaylist('${p.id}')"><div class="cover">${cv}<span class="cnt">${p.tracks.length} bài</span></div><div class="pn">${escapeAttr(p.name)}</div></div>`; }).join('');
+    return;
+  }
+  box.className='list';
   const data = srcArr(tab);
-  const lh=$('listHead');
-  if(tab==='fav'){ lh.innerHTML='<span class="dot">❤</span> Bài yêu thích'; lh.style.display=data.length?'flex':'none'; }
-  else if(tab==='hist'){ lh.innerHTML='<span class="dot">🕘</span> Nghe gần đây'; lh.style.display=data.length?'flex':'none'; }
+  if(tab==='plview'){
+    const p=plById(curPl);
+    lh.innerHTML='<span class="dot">🎵</span> '+escapeAttr(p?p.name:'Playlist')+'<span class="head-btn">'
+      +(data.length?'<button onclick="playFromList(\'plview\',0)">▶ Phát tất cả</button>':'')
+      +'<button onclick="delPlaylist(\''+curPl+'\')">🗑 Xoá</button></span>';
+    lh.style.display='flex';
+  } else if(tab==='fav'){ lh.innerHTML='<span class="dot">❤</span> Bài yêu thích'; lh.style.display=data.length?'flex':'none'; }
+  else if(tab==='hist'){ lh.innerHTML='<span class="dot">🕘</span> Video đã xem'; lh.style.display=data.length?'flex':'none'; }
   else if(data.length){ lh.innerHTML=searchHead||''; lh.style.display=searchHead?'flex':'none'; }
   else lh.style.display='none';
   if(!data.length){
-    if(tab==='fav') box.innerHTML='<div class="hint"><div class="big">♡</div><p>Chưa có bài yêu thích.<br>Bấm trái tim ở góc mỗi video để lưu nhé.</p></div>';
-    else if(tab==='hist') box.innerHTML='<div class="hint"><div class="big">🕘</div><p>Chưa nghe bài nào.<br>Bài bạn nghe sẽ xuất hiện ở đây.</p></div>';
-    else box.innerHTML='<div class="hint"><div class="big">🎧</div><p>Tìm một bài hát để bắt đầu —<br>hoặc bấm một thẻ gợi ý phía trên.</p></div>';
+    if(tab==='fav') box.innerHTML=hint('♡','Chưa có bài yêu thích.','Bấm trái tim ở góc mỗi video để lưu.');
+    else if(tab==='hist') box.innerHTML=hint('🕘','Chưa xem video nào.','Video bạn nghe sẽ hiện ở đây.');
+    else if(tab==='plview') box.innerHTML=hint('🎵','Playlist trống.','Bấm ＋ ở video bất kỳ để thêm vào đây.');
+    else box.innerHTML=hint('🎧','Tìm một bài hát để bắt đầu —','hoặc bấm thẻ gợi ý phía trên.');
     return;
   }
-  const curId = (QUEUE[CUR]||{}).id;
-  box.innerHTML = data.map((s,i)=>`
-    <div class="vcard ${s.id===curId?'playing':''}" onclick="playFromList('${tab}',${i})">
-      <div class="vthumb">
-        <img src="${s.thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-        <div class="vplay"><span>▶</span></div>
-        <span class="badge-eq">♪ Đang phát</span>
-        <button class="vfav ${isFav(s.id)?'on':''}" onclick="event.stopPropagation();toggleFav('${tab}',${i},this)" title="Yêu thích">${isFav(s.id)?'❤':'♡'}</button>
-      </div>
-      <div class="vmeta">
-        <div class="vinfo"><div class="vti">${escapeAttr(s.title)}</div><div class="vch">${escapeAttr(s.channel)}</div></div>
-        <button class="vadd" onclick="event.stopPropagation();addToQueue('${tab}',${i})" title="Thêm vào hàng chờ">＋</button>
-      </div>
-    </div>`).join('');
+  box.innerHTML = data.map((s,i)=>card(s,i)).join('');
 }
 function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function srcArr(t){ return t==='fav'?getFavs():t==='hist'?getHist():lastResults; }
+function srcArr(t){ if(t==='fav')return getFavs(); if(t==='hist')return getHist(); if(t==='plview'){ const p=plById(curPl); return p?p.tracks:[]; } return lastResults; }
+
+/* ============ SHEET: LƯU VÀO PLAYLIST ============ */
+let pendingTrack=null;
+function openAddMenu(t,i){ const s=srcArr(t)[i]; if(!s) return; pendingTrack=s; $('sheetSong').textContent=s.title; $('newPlName').value=''; renderSheetPlaylists(); $('plSheet').classList.add('open'); }
+function closeSheet(){ $('plSheet').classList.remove('open'); }
+function renderSheetPlaylists(){
+  const box=$('sheetPlaylists'), pls=getPlaylists(), pid=pendingTrack&&pendingTrack.id;
+  if(!pls.length){ box.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:4px 14px 6px">Chưa có playlist — tạo mới bên dưới.</div>'; return; }
+  box.innerHTML=pls.map(p=>{ const has=p.tracks.some(x=>x.id===pid);
+    return `<button class="sheet-item ${has?'on':''}" onclick="addToPlaylist('${p.id}')"><span class="ic">${has?'✓':'🎵'}</span> ${escapeAttr(p.name)}<span style="color:var(--muted);font-size:.8rem;margin-left:auto">${p.tracks.length} bài</span></button>`; }).join('');
+}
+function sheetQueue(){ if(!pendingTrack) return; QUEUE.push(pendingTrack); if(CUR<0){ CUR=0; playCurrent(); } toast('Đã thêm vào hàng chờ'); closeSheet(); }
+function addToPlaylist(id){
+  if(!pendingTrack) return;
+  const pls=getPlaylists(), p=pls.find(x=>x.id===id); if(!p) return;
+  if(p.tracks.some(x=>x.id===pendingTrack.id)){ p.tracks=p.tracks.filter(x=>x.id!==pendingTrack.id); toast('Đã gỡ khỏi "'+p.name+'"'); }
+  else{ p.tracks.unshift({id:pendingTrack.id,title:pendingTrack.title,channel:pendingTrack.channel,thumb:pendingTrack.thumb}); toast('Đã lưu vào "'+p.name+'" ✓'); }
+  savePlaylists(pls); renderSheetPlaylists();
+  if(tab==='plview'||tab==='playlists') renderList();
+}
+function sheetCreate(){ const name=$('newPlName').value.trim(); if(!name){ $('newPlName').focus(); return; } const p=createPlaylist(name); $('newPlName').value=''; addToPlaylist(p.id); }
 
 /* ============ QUEUE / PLAY ============ */
 function playFromList(t,i){
@@ -551,6 +691,7 @@ function togglePanel(e){ if(e&&e.target.closest&&e.target.closest('.mctrl')) ret
 function backToSearch(){ closePanel(); window.scrollTo({top:0,behavior:'smooth'}); setTimeout(()=>$('q').focus(),300); }
 /* chế độ xem: phóng to (rạp) / toàn màn hình */
 function toggleLarge(){ const v=$('videoWrap'); const on=v.classList.toggle('large'); $('largeLbl').textContent=on?'Thu lại':'Phóng to'; }
+function toggleTheater(){ const on=document.body.classList.toggle('theater'); $('largeLbl').textContent=on?'Bình thường':'Rạp phim'; $('largeBtn').classList.toggle('on',on); }
 function goFullscreen(){
   const v=$('videoWrap');
   if(!document.fullscreenElement){ (v.requestFullscreen||v.webkitRequestFullscreen||v.msRequestFullscreen||function(){}).call(v); }
@@ -627,7 +768,7 @@ window.onYouTubeIframeAPIReady=function(){
 
 /* ============ INIT ============ */
 applyTheme(localStorage.getItem(LS.theme) || 'dark');
-renderChips(); updateKeyState(); switchTabUI();
+renderChips(); updateKeyState(); renderDrPlaylists(); tab='search'; switchTabUI();
 if(getKey()){ loadTrending(); }
 else{ renderList(); setTimeout(openKey, 500); }
 
