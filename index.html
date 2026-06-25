@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>quanglam·music — Nghe nhạc gì cũng có</title>
+<meta name="description" content="quanglam·music — tìm và nghe nhạc mới, nhạc hot TikTok ngay trên web.">
+<meta name="theme-color" content="#14161b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2314161b'/><text x='50' y='70' font-size='62' text-anchor='middle' fill='%23c2a06b'>♪</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161b; --bg2:#1b1e26; --bg3:#232732; --bg4:#2b303c;
+    --line:#2c313c; --text:#e9e6df; --muted:#9aa0ad;
+    --accent:#c2a06b; --accent-d:#a98748; --accent-soft:rgba(194,160,107,.14);
+    --danger:#d97a6b;
+    --bar-h:74px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--text);
+    line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--bar-h) + env(safe-area-inset-bottom));min-height:100vh}
+  img{display:block;max-width:100%}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input{font-family:inherit}
+  ::selection{background:var(--accent);color:#1a1a1a}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+
+  /* ===== HEADER ===== */
+  header{position:sticky;top:0;z-index:40;background:rgba(20,22,27,.86);backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line)}
+  .hbar{display:flex;align-items:center;gap:12px;padding:14px 16px;max-width:1040px;margin:0 auto}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:1.32rem;letter-spacing:.2px;flex:none}
+  .logo .note{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
+    background:linear-gradient(150deg,#2b303c,#1b1e26);border:1px solid var(--line);color:var(--accent);font-size:1.15rem;
+    box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .logo b{font-weight:700}
+  .logo span{color:var(--accent);font-weight:500}
+  .logo small{color:var(--muted);font-weight:400;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;display:block;margin-top:-3px}
+  .hspace{flex:1}
+  .icon-btn{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:var(--muted);
+    border:1px solid transparent;transition:.18s;font-size:1.05rem}
+  .icon-btn:hover{background:var(--bg3);color:var(--text)}
+  .icon-btn.warn{color:var(--accent)}
+
+  /* ===== SEARCH ===== */
+  .search-area{padding:22px 0 6px}
+  .searchbox{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:16px;padding:6px 6px 6px 16px;transition:.2s}
+  .searchbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .searchbox svg{width:20px;height:20px;color:var(--muted);flex:none}
+  .searchbox input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:1.02rem;padding:10px 0}
+  .searchbox input::placeholder{color:#6b7280}
+  .searchbox .go{background:var(--accent);color:#191919;font-weight:600;padding:11px 20px;border-radius:12px;
+    transition:.18s;font-size:.95rem;flex:none}
+  .searchbox .go:hover{background:var(--accent-d)}
+  .chips{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .chip{background:var(--bg3);border:1px solid var(--line);color:#c7ccd6;border-radius:999px;padding:7px 15px;
+    font-size:.84rem;transition:.18s}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ===== TABS ===== */
+  .tabs{display:flex;gap:6px;margin:22px 0 6px;border-bottom:1px solid var(--line)}
+  .tab{padding:11px 4px;margin-right:18px;color:var(--muted);font-weight:500;font-size:.96rem;position:relative;background:none}
+  .tab.on{color:var(--text)}
+  .tab.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent);border-radius:2px}
+
+  /* ===== LIST ===== */
+  .list{padding:10px 0 30px}
+  .row{display:flex;align-items:center;gap:13px;padding:9px;border-radius:14px;transition:.16s;cursor:pointer}
+  .row:hover{background:var(--bg2)}
+  .row.playing{background:var(--accent-soft)}
+  .thumb{width:60px;height:60px;border-radius:11px;object-fit:cover;flex:none;background:var(--bg4)}
+  .row.playing .thumb{box-shadow:0 0 0 2px var(--accent)}
+  .meta{flex:1;min-width:0}
+  .ti{font-weight:500;font-size:.97rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row.playing .ti{color:var(--accent)}
+  .ch{font-size:.8rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+  .row-acts{display:flex;gap:4px;flex:none}
+  .row-acts button{width:38px;height:38px;border-radius:10px;color:var(--muted);transition:.16s;display:grid;place-items:center;font-size:1.05rem}
+  .row-acts button:hover{background:var(--bg4);color:var(--text)}
+  .row-acts .fav.on{color:var(--danger)}
+
+  .hint{text-align:center;color:var(--muted);padding:60px 20px}
+  .hint .big{font-size:2.6rem;margin-bottom:12px;opacity:.7}
+  .hint p{font-size:.95rem}
+  .loader{display:flex;justify-content:center;padding:50px}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{background:rgba(217,122,107,.12);border:1px solid rgba(217,122,107,.4);color:#e6a99c;
+    padding:14px 16px;border-radius:13px;margin:14px 0;font-size:.9rem}
+
+  /* ===== NOW PLAYING PANEL ===== */
+  #npPanel{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--bg2);border-top:1px solid var(--line);
+    transform:translateY(calc(100% - var(--bar-h)));transition:transform .35s cubic-bezier(.3,.9,.3,1);
+    max-height:100vh;display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+  #npPanel.open{transform:translateY(0)}
+  /* mini bar */
+  .mini{height:var(--bar-h);display:flex;align-items:center;gap:12px;padding:0 12px;cursor:pointer;flex:none}
+  .mini .mthumb{width:50px;height:50px;border-radius:10px;object-fit:cover;background:var(--bg4);flex:none}
+  .mini .mmeta{flex:1;min-width:0}
+  .mini .mti{font-weight:500;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mini .mch{font-size:.76rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mini .mctrl{display:flex;align-items:center;gap:4px;flex:none}
+  .mini .mctrl button{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--text);transition:.16s}
+  .mini .mctrl button:hover{background:var(--bg4)}
+  .mini .mctrl .play{background:var(--accent);color:#191919;width:46px;height:46px}
+  .mini .mctrl .play:hover{background:var(--accent-d)}
+  .mini .mctrl svg{width:20px;height:20px}
+  .mini .play svg{width:22px;height:22px}
+  /* mini progress sliver on top of bar */
+  .mprog{position:absolute;top:0;left:0;right:0;height:3px;background:var(--line)}
+  .mprog .fill{height:100%;width:0;background:var(--accent)}
+
+  /* expanded content */
+  .np-body{flex:1;overflow-y:auto;padding:8px 20px 26px;display:flex;flex-direction:column;align-items:center}
+  .np-grab{width:42px;height:5px;border-radius:3px;background:var(--bg4);margin:10px auto 16px;flex:none}
+  .video-wrap{width:100%;max-width:480px;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;
+    box-shadow:0 14px 40px rgba(0,0,0,.55);flex:none}
+  #yt{width:100%;height:100%}
+  .np-info{text-align:center;margin:20px 0 6px;max-width:520px;width:100%}
+  .np-info h2{font-size:1.3rem;font-weight:600;line-height:1.3}
+  .np-info p{color:var(--muted);margin-top:4px;font-size:.92rem}
+  /* big progress */
+  .pbar{width:100%;max-width:520px;margin:18px 0 6px}
+  .pbar .track{height:6px;background:var(--bg4);border-radius:4px;cursor:pointer;position:relative}
+  .pbar .track .fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:4px;width:0}
+  .pbar .track .knob{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--accent);
+    transform:translate(-50%,-50%);left:0;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .pbar .times{display:flex;justify-content:space-between;font-size:.74rem;color:var(--muted);margin-top:7px}
+  /* big controls */
+  .bigctrl{display:flex;align-items:center;justify-content:center;gap:22px;margin:14px 0 6px}
+  .bigctrl button{color:var(--text);transition:.16s;display:grid;place-items:center}
+  .bigctrl .sm{width:46px;height:46px;border-radius:50%;color:var(--muted)}
+  .bigctrl .sm.on{color:var(--accent)}
+  .bigctrl .sm:hover{background:var(--bg4);color:var(--text)}
+  .bigctrl .nav{width:54px;height:54px}
+  .bigctrl .nav svg{width:30px;height:30px}
+  .bigctrl .bigplay{width:72px;height:72px;border-radius:50%;background:var(--accent);color:#191919;
+    box-shadow:0 10px 28px rgba(194,160,107,.35)}
+  .bigctrl .bigplay:hover{background:var(--accent-d)}
+  .bigctrl .bigplay svg{width:34px;height:34px}
+  .bigctrl .sm svg{width:22px;height:22px}
+
+  /* ===== MODAL (API key) ===== */
+  .modal{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:18px}
+  .modal.open{display:flex}
+  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(5px)}
+  .modal-box{position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:20px;max-width:460px;width:100%;
+    padding:26px 24px;max-height:92vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.6)}
+  .modal-box h3{font-size:1.3rem;font-weight:600;margin-bottom:6px}
+  .modal-box .sub{color:var(--muted);font-size:.9rem;margin-bottom:18px}
+  .modal-box ol{margin:0 0 16px 18px;font-size:.88rem;color:#c7ccd6;line-height:1.7}
+  .modal-box ol a{color:var(--accent);text-decoration:underline}
+  .modal-box label{display:block;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px;font-weight:600}
+  .modal-box input{width:100%;background:var(--bg3);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;
+    color:var(--text);font-size:.95rem;outline:none}
+  .modal-box input:focus{border-color:var(--accent)}
+  .modal-box .save{width:100%;background:var(--accent);color:#191919;font-weight:600;padding:13px;border-radius:12px;margin-top:14px;transition:.18s}
+  .modal-box .save:hover{background:var(--accent-d)}
+  .modal-box .close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;background:var(--bg3);color:var(--muted);display:grid;place-items:center}
+  .note-warn{background:var(--accent-soft);border:1px solid rgba(194,160,107,.3);border-radius:11px;padding:11px 13px;font-size:.82rem;color:#d8c39e;margin-top:14px}
+
+  .toast{position:fixed;left:50%;bottom:calc(var(--bar-h) + 18px);transform:translateX(-50%) translateY(20px);
+    background:var(--bg4);color:#fff;padding:11px 20px;border-radius:999px;font-size:.88rem;z-index:80;opacity:0;
+    pointer-events:none;transition:.3s;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media(max-width:560px){
+    .logo{font-size:1.18rem}
+    .searchbox .go{padding:11px 15px}
+    .row-acts .add{display:none}
+    .np-info h2{font-size:1.15rem}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="logo">
+      <span class="note">♪</span>
+      <div><b>quanglam</b><span>·music</span><small>nghe gì cũng có</small></div>
+    </div>
+    <div class="hspace"></div>
+    <button class="icon-btn" id="favTab" title="Yêu thích" onclick="switchTab('fav')">♡</button>
+    <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()">⚙️</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="search-area">
+    <form class="searchbox" onsubmit="doSearch(event)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="q" type="text" placeholder="Tìm bài hát, ca sĩ, nhạc TikTok..." autocomplete="off">
+      <button type="submit" class="go">Tìm</button>
+    </form>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" id="tab-search" onclick="switchTab('search')">Kết quả</button>
+    <button class="tab" id="tab-fav" onclick="switchTab('fav')">Yêu thích</button>
+  </div>
+
+  <div class="list" id="list"></div>
+</main>
+
+<!-- NOW PLAYING + MINI BAR -->
+<div id="npPanel">
+  <div class="mprog"><div class="fill" id="miniFill"></div></div>
+  <div class="mini" onclick="togglePanel(event)">
+    <img class="mthumb" id="miniThumb" alt="" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50'><rect width='50' height='50' fill='%232b303c'/></svg>">
+    <div class="mmeta">
+      <div class="mti" id="miniTitle">Chưa phát bài nào</div>
+      <div class="mch" id="miniChannel">Tìm và bấm một bài để nghe</div>
+    </div>
+    <div class="mctrl" onclick="event.stopPropagation()">
+      <button onclick="prev()" title="Bài trước"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg></button>
+      <button class="play" id="miniPlay" onclick="togglePlay()" title="Phát/Dừng"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+      <button onclick="next()" title="Bài sau"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg></button>
+    </div>
+  </div>
+
+  <div class="np-body">
+    <div class="np-grab" onclick="togglePanel()"></div>
+    <div class="video-wrap"><div id="yt"></div></div>
+    <div class="np-info">
+      <h2 id="npTitle">Chưa phát bài nào</h2>
+      <p id="npChannel">—</p>
+    </div>
+    <div class="pbar">
+      <div class="track" id="track" onclick="seekClick(event)">
+        <div class="fill" id="bigFill"></div>
+        <div class="knob" id="knob"></div>
+      </div>
+      <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+    </div>
+    <div class="bigctrl">
+      <button class="sm" id="shufBtn" onclick="toggleShuffle()" title="Trộn bài"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+      <button class="nav" onclick="prev()" title="Bài trước"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg></button>
+      <button class="bigplay" id="bigPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="nav" onclick="next()" title="Bài sau"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg></button>
+      <button class="sm" id="repBtn" onclick="toggleRepeat()" title="Lặp lại"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal" id="keyModal">
+  <div class="modal-bg" onclick="closeKey()"></div>
+  <div class="modal-box">
+    <button class="close" onclick="closeKey()">✕</button>
+    <h3>🔑 Kết nối YouTube</h3>
+    <p class="sub">Để "tìm bài gì cũng ra", web cần một <b>YouTube API key</b> miễn phí của Google. Làm 1 lần, ~2 phút.</p>
+    <ol>
+      <li>Vào <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud Console</a> → bấm <b>Enable</b> (bật YouTube Data API v3).</li>
+      <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <b>Create credentials</b> → <b>API key</b>.</li>
+      <li>Copy chuỗi key (kiểu <i>AIza...</i>) rồi dán vào ô dưới.</li>
+    </ol>
+    <label>YouTube API key</label>
+    <input id="keyInput" type="text" placeholder="AIzaSy..." autocomplete="off">
+    <button class="save" onclick="saveKey()">Lưu & bắt đầu nghe</button>
+    <div class="note-warn">💡 Mỗi key miễn phí cho khoảng <b>100 lượt tìm/ngày</b>. Đủ dùng cá nhân. Key lưu trên máy bạn, không gửi đi đâu khác ngoài Google.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ STATE ============ */
+/* 👇👇👇 CHỦ WEB DÁN KEY CỦA BẠN VÀO GIỮA 2 DẤU NHÁY DƯỚI ĐÂY 👇👇👇
+   Khi đã dán key, MỌI người vào web đều dùng chung key này — không ai phải nhập gì.
+   (Nhớ vào Google Cloud giới hạn key theo tên miền web của bạn cho an toàn.) */
+const OWNER_KEY = 'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY';
+/* 👆👆👆 ------------------------------------------------------- 👆👆👆 */
+
+const LS = { key:'qlm_key', favs:'qlm_favs' };
+let QUEUE = [];          // danh sách đang phát
+let CUR = -1;            // vị trí hiện tại trong QUEUE
+let lastResults = [];    // kết quả tìm gần nhất
+let tab = 'search';
+let shuffle = false, repeat = 'off'; // off | all | one
+let player = null, ytReady = false, pendingId = null;
+let isPlaying = false, seeking = false;
+
+const $ = id => document.getElementById(id);
+function getKey(){ return (OWNER_KEY && OWNER_KEY.trim()) || localStorage.getItem(LS.key) || ''; }
+function getFavs(){ try{ return JSON.parse(localStorage.getItem(LS.favs)||'[]'); }catch(e){ return []; } }
+function saveFavs(a){ localStorage.setItem(LS.favs, JSON.stringify(a)); }
+function decode(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
+function fmtTime(s){ s=Math.max(0,Math.floor(s||0)); const m=Math.floor(s/60); const ss=String(s%60).padStart(2,'0'); return m+':'+ss; }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ============ API KEY ============ */
+function openKey(){ $('keyInput').value=getKey(); $('keyModal').classList.add('open'); }
+function closeKey(){ $('keyModal').classList.remove('open'); }
+function saveKey(){
+  const v=$('keyInput').value.trim();
+  if(!v){ toast('Bạn chưa nhập key'); return; }
+  localStorage.setItem(LS.key, v); closeKey(); updateKeyState();
+  toast('Đã lưu key — tìm nhạc thôi! 🎶');
+}
+function updateKeyState(){ $('keyBtn').classList.toggle('warn', !getKey()); }
+
+/* ============ SEARCH ============ */
+const CHIPS = ['Nhạc hot TikTok','Nhạc trẻ 2026','Vpop mới nhất','US-UK thịnh hành','Lofi chill','Nhạc remix','Ballad buồn','EDM'];
+function renderChips(){
+  $('chips').innerHTML = CHIPS.map(c=>`<button class="chip" onclick="quickSearch('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
+}
+function quickSearch(q){ $('q').value=q; runSearch(q); }
+function doSearch(e){ e.preventDefault(); const q=$('q').value.trim(); if(q) runSearch(q); }
+
+async function runSearch(q){
+  const key=getKey();
+  if(!key){ openKey(); return; }
+  switchTab('search');
+  $('list').innerHTML='<div class="loader"><div class="spin"></div></div>';
+  try{
+    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=24&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+    const r=await fetch(url);
+    const data=await r.json();
+    if(data.error){
+      const reason=(data.error.errors&&data.error.errors[0]&&data.error.errors[0].reason)||'';
+      let msg=data.error.message||'Lỗi không rõ';
+      if(reason==='quotaExceeded') msg='Đã hết lượt tìm miễn phí trong ngày (quota). Thử lại ngày mai hoặc tạo key mới.';
+      if(reason==='keyInvalid'||data.error.code===400) msg='API key không hợp lệ. Kiểm tra lại trong ⚙️.';
+      $('list').innerHTML='<div class="err">⚠️ '+msg+'</div>';
+      return;
+    }
+    lastResults=(data.items||[]).filter(it=>it.id&&it.id.videoId).map(it=>({
+      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
+      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url
+    }));
+    renderList();
+  }catch(err){
+    $('list').innerHTML='<div class="err">⚠️ Không kết nối được. Kiểm tra mạng rồi thử lại.</div>';
+  }
+}
+
+/* ============ RENDER LIST ============ */
+function switchTab(t){
+  tab=t;
+  $('tab-search').classList.toggle('on', t==='search');
+  $('tab-fav').classList.toggle('on', t==='fav');
+  renderList();
+}
+function isFav(id){ return getFavs().some(f=>f.id===id); }
+function renderList(){
+  const box=$('list');
+  const data = tab==='fav' ? getFavs() : lastResults;
+  if(!data.length){
+    if(tab==='fav'){ box.innerHTML='<div class="hint"><div class="big">♡</div><p>Chưa có bài yêu thích.<br>Bấm trái tim ở mỗi bài để lưu nhé.</p></div>'; }
+    else{ box.innerHTML='<div class="hint"><div class="big">🎧</div><p>Tìm một bài hát để bắt đầu —<br>hoặc bấm một thẻ gợi ý phía trên.</p></div>'; }
+    return;
+  }
+  const curId = (QUEUE[CUR]||{}).id;
+  box.innerHTML = data.map((s,i)=>`
+    <div class="row ${s.id===curId?'playing':''}" onclick="playFromList('${tab}',${i})">
+      <img class="thumb" src="${s.thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="meta"><div class="ti">${escapeAttr(s.title)}</div><div class="ch">${escapeAttr(s.channel)}</div></div>
+      <div class="row-acts" onclick="event.stopPropagation()">
+        <button class="add" onclick="addToQueue('${tab}',${i})" title="Thêm vào hàng chờ">＋</button>
+        <button class="fav ${isFav(s.id)?'on':''}" onclick="toggleFav('${tab}',${i},this)" title="Yêu thích">${isFav(s.id)?'❤':'♡'}</button>
+      </div>
+    </div>`).join('');
+}
+function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function srcArr(t){ return t==='fav'?getFavs():lastResults; }
+
+/* ============ QUEUE / PLAY ============ */
+function playFromList(t,i){
+  const arr=srcArr(t);
+  QUEUE = arr.slice();
+  CUR = i;
+  playCurrent();
+  openPanel();
+}
+function addToQueue(t,i){
+  const s=srcArr(t)[i]; if(!s) return;
+  QUEUE.push(s);
+  if(CUR<0){ CUR=0; playCurrent(); }
+  toast('Đã thêm vào hàng chờ');
+}
+function toggleFav(t,i,btn){
+  const s=srcArr(t)[i]; if(!s) return;
+  let favs=getFavs();
+  if(favs.some(f=>f.id===s.id)){ favs=favs.filter(f=>f.id!==s.id); toast('Đã bỏ yêu thích'); }
+  else{ favs.unshift({id:s.id,title:s.title,channel:s.channel,thumb:s.thumb}); toast('Đã lưu yêu thích ❤'); }
+  saveFavs(favs);
+  if(tab==='fav') renderList(); else if(btn){ const on=isFav(s.id); btn.classList.toggle('on',on); btn.textContent=on?'❤':'♡'; }
+}
+
+function playCurrent(){
+  const s=QUEUE[CUR]; if(!s) return;
+  $('miniTitle').textContent=s.title; $('miniChannel').textContent=s.channel;
+  $('npTitle').textContent=s.title; $('npChannel').textContent=s.channel;
+  $('miniThumb').src=s.thumb; $('miniThumb').style.visibility='visible';
+  if(ytReady && player){ player.loadVideoById(s.id); }
+  else{ pendingId=s.id; }
+  renderList();
+}
+function next(){
+  if(!QUEUE.length) return;
+  if(repeat==='one'){ player&&player.seekTo(0); player&&player.playVideo(); return; }
+  if(shuffle){ CUR=Math.floor(Math.random()*QUEUE.length); }
+  else CUR++;
+  if(CUR>=QUEUE.length){ if(repeat==='all'){ CUR=0; } else { CUR=QUEUE.length-1; return; } }
+  playCurrent();
+}
+function prev(){
+  if(!QUEUE.length) return;
+  if(player && player.getCurrentTime && player.getCurrentTime()>3){ player.seekTo(0); return; }
+  CUR--; if(CUR<0) CUR=0;
+  playCurrent();
+}
+function togglePlay(){
+  if(!player||!ytReady){ return; }
+  const st=player.getPlayerState();
+  if(st===YT.PlayerState.PLAYING){ player.pauseVideo(); }
+  else{ player.playVideo(); }
+}
+function setPlayIcon(p){
+  isPlaying=p;
+  const play='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const pause='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+  $('miniPlay').innerHTML=p?pause:play;
+  $('bigPlay').innerHTML=p?pause:play;
+}
+function toggleShuffle(){ shuffle=!shuffle; $('shufBtn').classList.toggle('on',shuffle); toast(shuffle?'Bật trộn bài':'Tắt trộn bài'); }
+function toggleRepeat(){
+  repeat = repeat==='off'?'all':repeat==='all'?'one':'off';
+  $('repBtn').classList.toggle('on',repeat!=='off');
+  $('repBtn').style.opacity = repeat==='one'?'1':'';
+  toast(repeat==='off'?'Tắt lặp':repeat==='all'?'Lặp toàn bộ':'Lặp 1 bài');
+}
+
+/* ============ PANEL ============ */
+function openPanel(){ $('npPanel').classList.add('open'); }
+function togglePanel(e){ if(e&&e.target.closest&&e.target.closest('.mctrl')) return; $('npPanel').classList.toggle('open'); }
+
+/* ============ PROGRESS ============ */
+function seekClick(e){
+  if(!player||!player.getDuration) return;
+  const r=$('track').getBoundingClientRect();
+  const frac=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+  player.seekTo(frac*player.getDuration(), true);
+}
+setInterval(()=>{
+  if(!player||!ytReady||!player.getDuration) return;
+  const dur=player.getDuration()||0, cur=player.getCurrentTime()||0;
+  if(dur>0){
+    const pct=(cur/dur*100);
+    $('bigFill').style.width=pct+'%'; $('knob').style.left=pct+'%'; $('miniFill').style.width=pct+'%';
+    $('tCur').textContent=fmtTime(cur); $('tDur').textContent=fmtTime(dur);
+  }
+},500);
+
+/* ============ YOUTUBE IFRAME API ============ */
+window.onYouTubeIframeAPIReady=function(){
+  player=new YT.Player('yt',{
+    height:'100%',width:'100%',
+    playerVars:{playsinline:1,rel:0,modestbranding:1,controls:1},
+    events:{
+      onReady:()=>{ ytReady=true; if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
+      onStateChange:(e)=>{
+        if(e.data===YT.PlayerState.PLAYING) setPlayIcon(true);
+        else if(e.data===YT.PlayerState.PAUSED) setPlayIcon(false);
+        else if(e.data===YT.PlayerState.ENDED) next();
+      },
+      onError:()=>{ if(QUEUE.length && CUR>=0){ toast('Bài này không phát được, chuyển bài...'); setTimeout(next,800); } }
+    }
+  });
+};
+(function loadYT(){ const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); })();
+
+/* ============ INIT ============ */
+renderChips(); updateKeyState(); renderList();
+if(!getKey()) setTimeout(openKey, 500);
+
+/* phím tắt: cách=play/pause, mũi tên = prev/next */
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.code==='Space'){ e.preventDefault(); togglePlay(); }
+  else if(e.code==='ArrowRight') next();
+  else if(e.code==='ArrowLeft') prev();
+});
+</script>
+</body>
+</html>
