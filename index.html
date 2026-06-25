@@ -47,8 +47,19 @@
 
   /* ===== SEARCH ===== */
   .search-area{padding:22px 0 6px}
-  .searchbox{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--line);
+  .searchbox{position:relative;display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--line);
     border-radius:16px;padding:6px 6px 6px 16px;transition:.2s}
+  /* gợi ý tìm kiếm */
+  .sugbox{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:35;background:var(--bg2);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.55);display:none;max-height:340px;overflow-y:auto}
+  .sugbox.show{display:block}
+  .sug{display:flex;align-items:center;gap:11px;padding:11px 16px;cursor:pointer;font-size:.94rem;color:#d3d7df;transition:.12s}
+  .sug:hover,.sug.hi{background:var(--bg3)}
+  .sug svg{width:16px;height:16px;color:var(--muted);flex:none}
+  .sug b{color:var(--text);font-weight:600}
+  /* tiêu đề danh sách */
+  .list-head{display:flex;align-items:center;gap:8px;font-weight:600;font-size:1.06rem;margin:18px 4px 2px}
+  .list-head .dot{color:var(--accent)}
   .searchbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .searchbox svg{width:20px;height:20px;color:var(--muted);flex:none}
   .searchbox input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:1.02rem;padding:10px 0}
@@ -116,10 +127,22 @@
 
   /* expanded content */
   .np-body{flex:1;overflow-y:auto;padding:8px 20px 26px;display:flex;flex-direction:column;align-items:center}
-  .np-grab{width:42px;height:5px;border-radius:3px;background:var(--bg4);margin:10px auto 16px;flex:none}
+  .np-grab{width:42px;height:5px;border-radius:3px;background:var(--bg4);margin:10px auto 14px;flex:none;cursor:pointer}
+  .np-top{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:520px;margin:4px auto 8px;flex:none}
+  .np-top-label{font-size:.72rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;font-weight:600}
+  .np-down{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--text);background:var(--bg3);border:1px solid var(--line);transition:.16s}
+  .np-down:hover{background:var(--bg4);color:var(--accent)}
+  .np-down svg{width:22px;height:22px}
   .video-wrap{width:100%;max-width:480px;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;
-    box-shadow:0 14px 40px rgba(0,0,0,.55);flex:none}
+    box-shadow:0 14px 40px rgba(0,0,0,.55);flex:none;transition:max-width .25s}
+  .video-wrap.large{max-width:880px}
+  .video-wrap:fullscreen{max-width:none;width:100%;height:100%;border-radius:0}
   #yt{width:100%;height:100%}
+  .np-modes{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center}
+  .np-modes button{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--line);
+    color:#c7ccd6;border-radius:11px;padding:9px 16px;font-size:.85rem;transition:.16s}
+  .np-modes button:hover{border-color:var(--accent);color:var(--accent)}
+  .np-modes button svg{width:17px;height:17px}
   .np-info{text-align:center;margin:20px 0 6px;max-width:520px;width:100%}
   .np-info h2{font-size:1.3rem;font-weight:600;line-height:1.3}
   .np-info p{color:var(--muted);margin-top:4px;font-size:.92rem}
@@ -196,6 +219,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="q" type="text" placeholder="Tìm bài hát, ca sĩ, nhạc TikTok..." autocomplete="off">
       <button type="submit" class="go">Tìm</button>
+      <div class="sugbox" id="sugbox"></div>
     </form>
     <div class="chips" id="chips"></div>
   </div>
@@ -205,6 +229,7 @@
     <button class="tab" id="tab-fav" onclick="switchTab('fav')">Yêu thích</button>
   </div>
 
+  <div class="list-head" id="listHead" style="display:none"></div>
   <div class="list" id="list"></div>
 </main>
 
@@ -225,8 +250,26 @@
   </div>
 
   <div class="np-body">
-    <div class="np-grab" onclick="togglePanel()"></div>
-    <div class="video-wrap"><div id="yt"></div></div>
+    <div class="np-top">
+      <button class="np-down" onclick="closePanel()" title="Thu nhỏ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <span class="np-top-label">Đang phát</span>
+      <button class="np-down" onclick="backToSearch()" title="Tìm bài khác">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </button>
+    </div>
+    <div class="video-wrap" id="videoWrap"><div id="yt"></div></div>
+    <div class="np-modes">
+      <button id="largeBtn" onclick="toggleLarge()" title="Phóng to / Vừa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        <span id="largeLbl">Phóng to</span>
+      </button>
+      <button onclick="goFullscreen()" title="Toàn màn hình">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        Toàn màn hình
+      </button>
+    </div>
     <div class="np-info">
       <h2 id="npTitle">Chưa phát bài nào</h2>
       <p id="npChannel">—</p>
@@ -280,8 +323,10 @@ const OWNER_KEY = 'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY';
 const LS = { key:'qlm_key', favs:'qlm_favs' };
 let QUEUE = [];          // danh sách đang phát
 let CUR = -1;            // vị trí hiện tại trong QUEUE
-let lastResults = [];    // kết quả tìm gần nhất
+let lastResults = [];    // kết quả tìm / nhạc xu hướng đang hiển thị
+let searchHead = '';     // tiêu đề danh sách
 let tab = 'search';
+let sugItems = [], sugHi = -1, sugSeq = 0, sugTimer = null;
 let shuffle = false, repeat = 'off'; // off | all | one
 let player = null, ytReady = false, pendingId = null;
 let isPlaying = false, seeking = false;
@@ -313,10 +358,28 @@ function renderChips(){
 function quickSearch(q){ $('q').value=q; runSearch(q); }
 function doSearch(e){ e.preventDefault(); const q=$('q').value.trim(); if(q) runSearch(q); }
 
+/* nhạc / video xu hướng — rẻ quota (1 điểm/lần) */
+async function loadTrending(){
+  const key=getKey(); if(!key) return;
+  tab='search'; switchTabUI();
+  $('list').innerHTML='<div class="loader"><div class="spin"></div></div>';
+  try{
+    const url='https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&regionCode=VN&maxResults=24&key='+encodeURIComponent(key);
+    const r=await fetch(url); const data=await r.json();
+    if(data.error){ lastResults=[]; renderList(); return; }
+    lastResults=(data.items||[]).map(it=>({
+      id:it.id, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
+      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url
+    }));
+    searchHead='<span class="dot">🔥</span> Thịnh hành tại Việt Nam';
+    renderList();
+  }catch(e){ lastResults=[]; renderList(); }
+}
+
 async function runSearch(q){
   const key=getKey();
   if(!key){ openKey(); return; }
-  switchTab('search');
+  hideSug(); switchTab('search');
   $('list').innerHTML='<div class="loader"><div class="spin"></div></div>';
   try{
     const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=24&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
@@ -334,6 +397,7 @@ async function runSearch(q){
       id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
       thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url
     }));
+    searchHead='<span class="dot">🔎</span> Kết quả cho "'+escapeAttr(q)+'"';
     renderList();
   }catch(err){
     $('list').innerHTML='<div class="err">⚠️ Không kết nối được. Kiểm tra mạng rồi thử lại.</div>';
@@ -341,16 +405,19 @@ async function runSearch(q){
 }
 
 /* ============ RENDER LIST ============ */
-function switchTab(t){
-  tab=t;
-  $('tab-search').classList.toggle('on', t==='search');
-  $('tab-fav').classList.toggle('on', t==='fav');
-  renderList();
+function switchTabUI(){
+  $('tab-search').classList.toggle('on', tab==='search');
+  $('tab-fav').classList.toggle('on', tab==='fav');
 }
+function switchTab(t){ tab=t; switchTabUI(); renderList(); }
 function isFav(id){ return getFavs().some(f=>f.id===id); }
 function renderList(){
   const box=$('list');
   const data = tab==='fav' ? getFavs() : lastResults;
+  const lh=$('listHead');
+  if(tab==='fav'){ lh.innerHTML='<span class="dot">❤</span> Bài yêu thích'; lh.style.display=data.length?'flex':'none'; }
+  else if(data.length){ lh.innerHTML=searchHead||''; lh.style.display=searchHead?'flex':'none'; }
+  else lh.style.display='none';
   if(!data.length){
     if(tab==='fav'){ box.innerHTML='<div class="hint"><div class="big">♡</div><p>Chưa có bài yêu thích.<br>Bấm trái tim ở mỗi bài để lưu nhé.</p></div>'; }
     else{ box.innerHTML='<div class="hint"><div class="big">🎧</div><p>Tìm một bài hát để bắt đầu —<br>hoặc bấm một thẻ gợi ý phía trên.</p></div>'; }
@@ -439,7 +506,49 @@ function toggleRepeat(){
 
 /* ============ PANEL ============ */
 function openPanel(){ $('npPanel').classList.add('open'); }
+function closePanel(){ $('npPanel').classList.remove('open'); }
 function togglePanel(e){ if(e&&e.target.closest&&e.target.closest('.mctrl')) return; $('npPanel').classList.toggle('open'); }
+function backToSearch(){ closePanel(); window.scrollTo({top:0,behavior:'smooth'}); setTimeout(()=>$('q').focus(),300); }
+/* chế độ xem: phóng to (rạp) / toàn màn hình */
+function toggleLarge(){ const v=$('videoWrap'); const on=v.classList.toggle('large'); $('largeLbl').textContent=on?'Thu lại':'Phóng to'; }
+function goFullscreen(){
+  const v=$('videoWrap');
+  if(!document.fullscreenElement){ (v.requestFullscreen||v.webkitRequestFullscreen||v.msRequestFullscreen||function(){}).call(v); }
+  else{ (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+}
+
+/* ============ GỢI Ý TÌM KIẾM (JSONP, không tốn quota) ============ */
+function onSugInput(){
+  const q=$('q').value.trim();
+  clearTimeout(sugTimer);
+  if(!q){ hideSug(); return; }
+  sugTimer=setTimeout(()=>fetchSuggest(q),220);
+}
+function fetchSuggest(q){
+  const cb='_ytsug'+(++sugSeq);
+  const s=document.createElement('script'); s.charset='utf-8';
+  window[cb]=function(data){ const arr=((data&&data[1])||[]).map(x=>Array.isArray(x)?x[0]:x).filter(Boolean).slice(0,10); renderSug(arr); done(); };
+  function done(){ try{ delete window[cb]; }catch(e){ window[cb]=null; } s.remove(); }
+  s.onerror=done;
+  s.src='https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&hl=vi&gl=vn&q='+encodeURIComponent(q)+'&callback='+cb;
+  document.head.appendChild(s);
+}
+function renderSug(arr){
+  sugItems=arr; sugHi=-1;
+  const box=$('sugbox');
+  if(!arr.length){ hideSug(); return; }
+  const ico='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+  box.innerHTML=arr.map((s,i)=>'<div class="sug" data-i="'+i+'" onmousedown="pickSug('+i+')">'+ico+'<span>'+escapeAttr(s)+'</span></div>').join('');
+  box.classList.add('show');
+}
+function hideSug(){ $('sugbox').classList.remove('show'); }
+function pickSug(i){ const q=sugItems[i]; if(q==null) return; $('q').value=q; hideSug(); runSearch(q); }
+function moveHi(d){
+  const els=[].slice.call(document.querySelectorAll('#sugbox .sug')); if(!els.length) return;
+  if(els[sugHi]) els[sugHi].classList.remove('hi');
+  sugHi=(sugHi+d+els.length)%els.length; els[sugHi].classList.add('hi');
+  els[sugHi].scrollIntoView({block:'nearest'});
+}
 
 /* ============ PROGRESS ============ */
 function seekClick(e){
@@ -477,8 +586,20 @@ window.onYouTubeIframeAPIReady=function(){
 (function loadYT(){ const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); })();
 
 /* ============ INIT ============ */
-renderChips(); updateKeyState(); renderList();
-if(!getKey()) setTimeout(openKey, 500);
+renderChips(); updateKeyState(); switchTabUI();
+if(getKey()){ loadTrending(); }
+else{ renderList(); setTimeout(openKey, 500); }
+
+/* gợi ý khi gõ */
+$('q').addEventListener('input', onSugInput);
+$('q').addEventListener('keydown', e=>{
+  if(!$('sugbox').classList.contains('show')) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); moveHi(1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); moveHi(-1); }
+  else if(e.key==='Enter'){ if(sugHi>=0){ e.preventDefault(); pickSug(sugHi); } }
+  else if(e.key==='Escape'){ hideSug(); }
+});
+$('q').addEventListener('blur', ()=>setTimeout(hideSug,150));
 
 /* phím tắt: cách=play/pause, mũi tên = prev/next */
 document.addEventListener('keydown',e=>{
