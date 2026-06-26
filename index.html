@@ -77,6 +77,18 @@
   body.light header{background:rgba(245,242,234,.86)}
   body.light .vplay,body.light .vfav{background:rgba(40,34,24,.55)}
 
+  /* ===== NỀN ĐỘNG (aurora trôi nhẹ phía sau) ===== */
+  .bg-fx{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+  .bg-fx .blob{position:absolute;border-radius:50%;filter:blur(72px);will-change:transform}
+  .bg-fx .b1{width:48vw;height:48vw;left:-10vw;top:-8vw;background:var(--accent);opacity:.5;animation:drift1 23s ease-in-out infinite}
+  .bg-fx .b2{width:42vw;height:42vw;right:-12vw;top:16vh;background:#5b9df0;opacity:.34;animation:drift2 29s ease-in-out infinite}
+  .bg-fx .b3{width:40vw;height:40vw;left:22vw;bottom:-16vw;background:#a583e8;opacity:.3;animation:drift3 26s ease-in-out infinite}
+  body.light .bg-fx .blob{opacity:.26;filter:blur(86px)}
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(9vw,7vh) scale(1.14)}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-8vw,6vh) scale(1.1)}}
+  @keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(6vw,-7vh) scale(1.16)}}
+  @media(prefers-reduced-motion:reduce){.bg-fx .blob{animation:none}}
+
   /* ===== HEADER ===== */
   header{position:sticky;top:0;z-index:40;background:rgba(20,22,27,.86);backdrop-filter:blur(14px);
     border-bottom:1px solid var(--line)}
@@ -469,6 +481,8 @@
 </style>
 </head>
 <body>
+
+<div class="bg-fx" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
 
 <header>
   <div class="hbar">
@@ -1212,9 +1226,27 @@ function moveQueue(i,d){
 /* ============ CHIA SẺ ============ */
 function shareSong(){
   const s=QUEUE[CUR]; if(!s){ toast('Chưa có bài nào đang phát'); return; }
-  const url='https://youtu.be/'+s.id;
+  const base=(location.origin && location.origin!=='null') ? (location.origin+location.pathname) : 'https://quanglam-music.netlify.app/';
+  const url=base+'?v='+s.id;   // link về CHÍNH web của bạn, mở ra phát ngay
   if(navigator.share){ navigator.share({ title:s.title, text:s.title+' — nghe trên quanglam·music', url }).catch(()=>{}); }
-  else{ try{ navigator.clipboard.writeText(url); toast('Đã copy link bài hát 📋'); }catch(e){ toast(url); } }
+  else{ try{ navigator.clipboard.writeText(url); toast('Đã copy link — mở ra sẽ phát ngay trên web của bạn 📋'); }catch(e){ toast(url); } }
+}
+/* Mở link chia sẻ (?v=ID) → tự phát bài đó ngay trên web mình, không về YouTube */
+async function playShared(id){
+  const s={ id, title:'Đang tải…', channel:'', thumb:'https://i.ytimg.com/vi/'+id+'/hqdefault.jpg' };
+  QUEUE=[s]; CUR=0; playCurrent(); openPanel();
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  const key=getKey(); if(!key) return;
+  try{
+    const r=await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet&id='+encodeURIComponent(id)+'&key='+encodeURIComponent(key));
+    const d=await r.json(); const it=d.items&&d.items[0];
+    if(it && (QUEUE[CUR]||{}).id===id){
+      s.title=decode(it.snippet.title); s.channel=decode(it.snippet.channelTitle);
+      const th=it.snippet.thumbnails&&(it.snippet.thumbnails.medium||it.snippet.thumbnails.default);
+      if(th) s.thumb=th.url;
+      paintNowPlaying(s); fetchLyrics(s);
+    }
+  }catch(e){}
 }
 
 /* ============ LIVE CHAT (chat trực tiếp cạnh video) ============ */
@@ -1383,10 +1415,22 @@ applyTheme(localStorage.getItem(LS.theme) || 'dark');
 setupMediaSession(); renderQueue();
 renderChips(); buildViz(); updateKeyState(); renderDrPlaylists(); tab='search'; switchTabUI(); setupHoverPreview();
 applyAccent(localStorage.getItem(LS.accent) || 'gold');
-restoreSession(); setupSwipe();
+setupSwipe();
 window.addEventListener('beforeunload', saveSession);
-if(getKey()){ loadTrending(); }
-else{ renderList(); setTimeout(openKey, 500); }
+const _params=new URLSearchParams(location.search);
+const _shareV=_params.get('v'), _shareQ=_params.get('q');
+if(_shareV){                                   // mở link chia sẻ bài hát
+  playShared(_shareV);
+  if(getKey()) loadTrending(); else renderList();
+} else if(_shareQ){                            // mở link tìm kiếm
+  $('q').value=_shareQ; toggleClear();
+  if(getKey()){ loadTrending(); runSearch(_shareQ); }
+  else{ renderList(); setTimeout(openKey,500); }
+} else {                                       // mở bình thường
+  restoreSession();
+  if(getKey()){ loadTrending(); }
+  else{ renderList(); setTimeout(openKey, 500); }
+}
 
 /* gợi ý khi gõ */
 $('q').addEventListener('input', onSugInput);
