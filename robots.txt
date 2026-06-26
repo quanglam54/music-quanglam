@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://quanglam-music.netlify.app/sitemap.xml
