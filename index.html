@@ -360,7 +360,7 @@
     padding:6px 10px 9px;background:linear-gradient(transparent,rgba(0,0,0,.72));
     opacity:0;transition:opacity .2s;pointer-events:none}
   .video-wrap:hover .vf-ctrl,.video-wrap:fullscreen .vf-ctrl,.video-wrap:-webkit-full-screen .vf-ctrl,
-  body:not(.vplaying) .vf-ctrl{opacity:1;pointer-events:auto}
+  body:not(.vplaying) .vf-ctrl,body.is-live .vf-ctrl{opacity:1;pointer-events:auto}
   @media(hover:none){ .vf-ctrl{opacity:1;pointer-events:auto} }
   .vf-prog{position:relative;height:6px;border-radius:4px;background:rgba(255,255,255,.3);cursor:pointer;margin:0 2px}
   .vf-prog .vf-fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:4px;width:0}
@@ -383,6 +383,19 @@
   .vf-row .vf-live:hover{background:#c12722}
   .vf-row .vf-live.behind{background:rgba(255,255,255,.28)}
   .vf-row .vf-live.behind:hover{background:rgba(255,255,255,.45)}
+  /* menu cài đặt trên video: tốc độ phát + chất lượng */
+  .vf-settings{position:absolute;right:10px;bottom:56px;z-index:7;min-width:172px;max-height:64%;overflow-y:auto;
+    background:rgba(18,20,25,.97);border:1px solid var(--line);border-radius:13px;padding:8px;
+    box-shadow:0 12px 34px rgba(0,0,0,.55);display:none}
+  .vf-settings.open{display:block}
+  .vfs-sec{padding:4px}
+  .vfs-sec+.vfs-sec{border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
+  .vfs-title{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:2px 6px 7px;font-weight:600}
+  .vfs-opts{display:flex;flex-wrap:wrap;gap:5px}
+  .vfs-opt{padding:6px 11px;border-radius:8px;font-size:.8rem;color:#e9e6df;background:rgba(255,255,255,.08);transition:.14s}
+  .vfs-opt:hover{background:rgba(255,255,255,.2)}
+  .vfs-opt.on{background:var(--accent);color:#191919;font-weight:600}
+  .vfs-hint{font-size:.73rem;color:var(--muted);padding:4px 6px;line-height:1.4}
   @media(max-width:560px){ .vf-vol,.vf-volbtn{display:none} .vf-row button{width:32px;height:32px} }
   /* sân khấu: video + chat trực tiếp */
   .np-stage{display:flex;gap:14px;width:100%;max-width:600px;margin:0 auto;align-items:stretch}
@@ -625,7 +638,7 @@
       </button>
     </div>
     <div class="np-stage">
-      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" id="ytGuard" aria-hidden="true" onclick="videoTap()"><span class="gplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="vf-ctrl" id="vfCtrl">
+      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" id="ytGuard" aria-hidden="true" onclick="videoTap()"><span class="gplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="vf-settings" id="vfSettings"><div class="vfs-sec"><div class="vfs-title">⏩ Tốc độ phát</div><div class="vfs-opts" id="vfsRates"></div></div><div class="vfs-sec"><div class="vfs-title">🎚 Chất lượng</div><div class="vfs-opts" id="vfsQual"></div></div></div><div class="vf-ctrl" id="vfCtrl">
         <div class="vf-prog" id="track" onclick="seekClick(event)"><div class="vf-fill" id="bigFill"></div><div class="vf-knob" id="knob"></div></div>
         <div class="vf-row">
           <button id="vfPlay" onclick="event.stopPropagation();togglePlay()" title="Phát/Dừng"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
@@ -636,6 +649,7 @@
           <button id="liveBtn" class="vf-live" onclick="event.stopPropagation();goLive()" title="Về phát trực tiếp" style="display:none">TRỰC TIẾP</button>
           <span class="vf-volbtn" title="Âm lượng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg></span>
           <input type="range" id="vol" class="vf-vol" min="0" max="100" value="100" oninput="setVol(this.value)" onclick="event.stopPropagation()">
+          <button id="vfGear" onclick="event.stopPropagation();toggleSettings()" title="Cài đặt: tốc độ phát, chất lượng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
           <button id="vfFull" onclick="event.stopPropagation();goFullscreen()" title="Toàn màn hình / Thu nhỏ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
         </div>
       </div></div>
@@ -1052,6 +1066,8 @@ function paintNowPlaying(s){
 function playCurrent(){
   const s=QUEUE[CUR]; if(!s) return;
   paintNowPlaying(s);
+  curIsLive=!!s.live; document.body.classList.toggle('is-live',!!s.live);
+  { const lb=$('liveBtn'); if(lb){ lb.style.display=s.live?'inline-flex':'none'; lb.classList.remove('behind'); } }
   if(ytReady && player){ player.loadVideoById(s.id); }
   else{ pendingId=s.id; }
   pushHistory(s); checkLive(s.id); fetchLyrics(s); saveSession(); loadRelatedList(s);
@@ -1275,6 +1291,26 @@ function goLive(){
   const lb=$('liveBtn'); if(lb) lb.classList.remove('behind');
 }
 
+/* ============ CÀI ĐẶT VIDEO: TỐC ĐỘ PHÁT + CHẤT LƯỢNG ============ */
+function toggleSettings(){ const p=$('vfSettings'); if(!p) return; if(p.classList.toggle('open')) buildSettings(); }
+function buildSettings(){
+  if(!player){ return; }
+  const rates=(player.getAvailablePlaybackRates&&player.getAvailablePlaybackRates())||[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
+  const curRate=(player.getPlaybackRate&&player.getPlaybackRate())||1;
+  $('vfsRates').innerHTML=rates.map(r=>'<button class="vfs-opt'+(Math.abs(r-curRate)<.001?' on':'')+'" onclick="event.stopPropagation();setRate('+r+')">'+(r===1?'Chuẩn':r+'×')+'</button>').join('');
+  const levels=(player.getAvailableQualityLevels&&player.getAvailableQualityLevels())||[];
+  const curQ=(player.getPlaybackQuality&&player.getPlaybackQuality())||'auto';
+  const lab={highres:'4320p',hd2160:'2160p',hd1440:'1440p',hd1080:'1080p',hd720:'720p',large:'480p',medium:'360p',small:'240p',tiny:'144p'};
+  let q='<button class="vfs-opt'+((curQ==='auto'||curQ==='default')?' on':'')+'" onclick="event.stopPropagation();setQual(\'default\')">Tự động</button>';
+  const named=levels.filter(l=>lab[l]);
+  q+=named.map(l=>'<button class="vfs-opt'+(l===curQ?' on':'')+'" onclick="event.stopPropagation();setQual(\''+l+'\')">'+lab[l]+'</button>').join('');
+  if(!named.length) q+='<div class="vfs-hint">YouTube tự chọn chất lượng theo tốc độ mạng.</div>';
+  $('vfsQual').innerHTML=q;
+}
+function setRate(r){ if(player&&player.setPlaybackRate){ player.setPlaybackRate(r); toast(r===1?'Tốc độ: Chuẩn':'Tốc độ: '+r+'×'); } buildSettings(); }
+function setQual(qq){ if(player&&player.setPlaybackQuality){ player.setPlaybackQuality(qq); } buildSettings(); }
+document.addEventListener('click',e=>{ const p=$('vfSettings'); if(p&&p.classList.contains('open') && !e.target.closest('#vfSettings') && !e.target.closest('#vfGear')) p.classList.remove('open'); });
+
 /* ============ HÀNG CHỜ ============ */
 function renderQueue(){
   const box=$('queueList'); if(!box) return;
@@ -1388,7 +1424,7 @@ async function checkLive(id){
     const d=await r.json(); const it=d.items&&d.items[0];
     const live=!!(it&&it.snippet&&it.snippet.liveBroadcastContent==='live');
     if(id!==(QUEUE[CUR]||{}).id) return;           // đã chuyển bài thì bỏ qua
-    curIsLive=live; const lb=$('liveBtn'); if(lb){ lb.style.display=live?'inline-flex':'none'; lb.classList.remove('behind'); }
+    curIsLive=live; document.body.classList.toggle('is-live',live); const lb=$('liveBtn'); if(lb){ lb.style.display=live?'inline-flex':'none'; lb.classList.remove('behind'); }
     if(live){ chatOn=true; document.body.classList.add('chat-on'); updateChatBtn(); loadChat(); toast('🔴 LIVE — đã mở chat trực tiếp'); }
     else { chatOn=false; document.body.classList.remove('chat-on'); updateChatBtn(); $('liveChat').innerHTML=''; }
   }catch(e){}
