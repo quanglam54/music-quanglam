@@ -259,9 +259,9 @@
   .np-down svg{width:22px;height:22px}
   .video-wrap{position:relative;width:100%;max-width:480px;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;
     box-shadow:0 14px 40px rgba(0,0,0,.55);flex:none;transition:max-width .25s}
-  /* chắn dải trên cùng của video — giấu & vô hiệu hoá tiêu đề/link dẫn ra YouTube cho gọn gàng */
-  .yt-guard{position:absolute;top:0;left:0;right:0;height:62px;z-index:5;pointer-events:auto;
-    background:linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,0))}
+  /* phủ kín video — chặn mọi tương tác vào iframe YouTube nên không hiện logo/tiêu đề/link dẫn ra YouTube.
+     App điều khiển phát/tạm dừng bằng nút riêng nên không cần bấm trực tiếp vào video. */
+  .yt-guard{position:absolute;inset:0;z-index:5;pointer-events:auto;background:transparent;cursor:pointer}
   .video-wrap.large{max-width:880px}
   .video-wrap:fullscreen{max-width:none;width:100%;height:100%;border-radius:0}
   #yt{width:100%;height:100%}
@@ -420,7 +420,7 @@
       </button>
     </div>
     <div class="np-stage">
-      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" aria-hidden="true"></div></div>
+      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" aria-hidden="true" onclick="togglePlay()"></div></div>
       <div id="liveChat"></div>
     </div>
     <div class="np-modes">
