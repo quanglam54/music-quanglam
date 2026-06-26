@@ -42,10 +42,14 @@
   header{position:sticky;top:0;z-index:40;background:rgba(20,22,27,.86);backdrop-filter:blur(14px);
     border-bottom:1px solid var(--line)}
   .hbar{display:flex;align-items:center;gap:12px;padding:14px 16px;max-width:1040px;margin:0 auto}
-  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:1.32rem;letter-spacing:.2px;flex:none}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:1.32rem;letter-spacing:.2px;flex:none;cursor:pointer;transition:.16s;border-radius:12px}
+  .logo:hover .note{border-color:var(--accent);box-shadow:0 4px 16px rgba(194,160,107,.45)}
+  .logo:hover b{color:var(--accent)}
   .logo .note{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
     background:linear-gradient(150deg,#2b303c,#1b1e26);border:1px solid var(--line);color:var(--accent);font-size:1.15rem;
     box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .logo .note svg{width:19px;height:19px}
+  .dr-logo .note svg{width:17px;height:17px}
   .logo b{font-weight:700}
   .logo span{color:var(--accent);font-weight:500}
   .logo small{color:var(--muted);font-weight:400;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;display:block;margin-top:-3px}
@@ -77,6 +81,10 @@
   .searchbox .go{background:var(--accent);color:#191919;font-weight:600;padding:11px 20px;border-radius:12px;
     transition:.18s;font-size:.95rem;flex:none}
   .searchbox .go:hover{background:var(--accent-d)}
+  .searchbox .clear{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--muted);flex:none;
+    background:var(--bg3);transition:.16s}
+  .searchbox .clear:hover{color:var(--text);background:var(--bg4)}
+  .searchbox .clear svg{width:15px;height:15px}
   .searchbox .mic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:var(--muted);flex:none;transition:.16s}
   .searchbox .mic svg{width:20px;height:20px}
   .searchbox .mic:hover{color:var(--accent);background:var(--bg3)}
@@ -249,8 +257,11 @@
   .np-down{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--text);background:var(--bg3);border:1px solid var(--line);transition:.16s}
   .np-down:hover{background:var(--bg4);color:var(--accent)}
   .np-down svg{width:22px;height:22px}
-  .video-wrap{width:100%;max-width:480px;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;
+  .video-wrap{position:relative;width:100%;max-width:480px;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;
     box-shadow:0 14px 40px rgba(0,0,0,.55);flex:none;transition:max-width .25s}
+  /* chắn dải trên cùng của video — giấu & vô hiệu hoá tiêu đề/link dẫn ra YouTube cho gọn gàng */
+  .yt-guard{position:absolute;top:0;left:0;right:0;height:62px;z-index:5;pointer-events:auto;
+    background:linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,0))}
   .video-wrap.large{max-width:880px}
   .video-wrap:fullscreen{max-width:none;width:100%;height:100%;border-radius:0}
   #yt{width:100%;height:100%}
@@ -336,8 +347,8 @@
 <header>
   <div class="hbar">
     <button class="icon-btn burger" onclick="openDrawer()" title="Menu" aria-label="Menu">☰</button>
-    <div class="logo">
-      <span class="note">♪</span>
+    <div class="logo" onclick="nav('search')" title="Về trang chủ" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();nav('search')}">
+      <span class="note"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M328 120v210a64 64 0 1 1-40-59V178l-128 36v152a64 64 0 1 1-40-59V196a24 24 0 0 1 17-23l168-47a24 24 0 0 1 31 23z"/></svg></span>
       <div><b>quanglam</b><span>·music</span><small>nghe gì cũng có</small></div>
     </div>
     <div class="hspace"></div>
@@ -351,7 +362,7 @@
 <div class="drawer" id="drawer">
   <div class="drawer-bg" onclick="closeDrawer()"></div>
   <div class="drawer-panel">
-    <div class="dr-logo"><span class="note">♪</span> <div>quanglam<span style="color:var(--accent)">·music</span></div></div>
+    <div class="dr-logo"><span class="note"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M328 120v210a64 64 0 1 1-40-59V178l-128 36v152a64 64 0 1 1-40-59V196a24 24 0 0 1 17-23l168-47a24 24 0 0 1 31 23z"/></svg></span> <div>quanglam<span style="color:var(--accent)">·music</span></div></div>
     <button class="dr-item" id="nav-search" onclick="nav('search')"><span class="ic">🏠</span> Trang chủ</button>
     <button class="dr-item" id="nav-hist" onclick="nav('hist')"><span class="ic">🕘</span> Video đã xem</button>
     <button class="dr-item" id="nav-fav" onclick="nav('fav')"><span class="ic">❤️</span> Yêu thích</button>
@@ -366,6 +377,9 @@
     <form class="searchbox" onsubmit="doSearch(event)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="q" type="text" placeholder="Tìm bài hát, ca sĩ, nhạc TikTok..." autocomplete="off">
+      <button type="button" class="clear" id="clearBtn" onclick="clearSearch()" title="Xoá" aria-label="Xoá ô tìm kiếm" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <button type="button" class="mic" id="micBtn" onclick="voiceSearch()" title="Tìm bằng giọng nói" aria-label="Tìm bằng giọng nói">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
       </button>
@@ -406,7 +420,7 @@
       </button>
     </div>
     <div class="np-stage">
-      <div class="video-wrap" id="videoWrap"><div id="yt"></div></div>
+      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" aria-hidden="true"></div></div>
       <div id="liveChat"></div>
     </div>
     <div class="np-modes">
@@ -557,7 +571,7 @@ const CHIPS = ['Nhạc hot TikTok','Nhạc trẻ 2026','Vpop mới nhất','US-U
 function renderChips(){
   $('chips').innerHTML = CHIPS.map(c=>`<button class="chip" onclick="quickSearch('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
 }
-function quickSearch(q){ $('q').value=q; runSearch(q); }
+function quickSearch(q){ $('q').value=q; toggleClear(); runSearch(q); }
 function doSearch(e){ e.preventDefault(); const q=$('q').value.trim(); if(q) runSearch(q); }
 
 /* nhạc / video xu hướng — rẻ quota (1 điểm/lần) */
@@ -798,7 +812,7 @@ function voiceSearch(){
   const rec=new SR(); rec.lang='vi-VN'; rec.interimResults=false; rec.maxAlternatives=1;
   const btn=$('micBtn');
   rec.onstart=()=>{ btn.classList.add('listening'); toast('🎤 Đang nghe... nói tên bài hát'); };
-  rec.onresult=e=>{ const txt=e.results[0][0].transcript; $('q').value=txt; hideSug(); runSearch(txt); };
+  rec.onresult=e=>{ const txt=e.results[0][0].transcript; $('q').value=txt; toggleClear(); hideSug(); runSearch(txt); };
   rec.onerror=e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed') toast('Cần cho phép dùng micro'); else if(e.error==='no-speech') toast('Không nghe thấy gì, thử lại nhé'); else toast('Lỗi micro, thử lại'); };
   rec.onend=()=>{ btn.classList.remove('listening'); };
   try{ rec.start(); }catch(e){ btn.classList.remove('listening'); }
@@ -836,10 +850,13 @@ function goFullscreen(){
 /* ============ GỢI Ý TÌM KIẾM (JSONP, không tốn quota) ============ */
 function onSugInput(){
   const q=$('q').value.trim();
+  toggleClear();
   clearTimeout(sugTimer);
   if(!q){ hideSug(); return; }
   sugTimer=setTimeout(()=>fetchSuggest(q),220);
 }
+function toggleClear(){ const b=$('clearBtn'); if(b) b.style.display = $('q').value ? 'grid' : 'none'; }
+function clearSearch(){ const i=$('q'); i.value=''; hideSug(); toggleClear(); i.focus(); }
 function fetchSuggest(q){
   const cb='_ytsug'+(++sugSeq);
   const s=document.createElement('script'); s.charset='utf-8';
@@ -858,7 +875,7 @@ function renderSug(arr){
   box.classList.add('show');
 }
 function hideSug(){ $('sugbox').classList.remove('show'); }
-function pickSug(i){ const q=sugItems[i]; if(q==null) return; $('q').value=q; hideSug(); runSearch(q); }
+function pickSug(i){ const q=sugItems[i]; if(q==null) return; $('q').value=q; toggleClear(); hideSug(); runSearch(q); }
 function moveHi(d){
   const els=[].slice.call(document.querySelectorAll('#sugbox .sug')); if(!els.length) return;
   if(els[sugHi]) els[sugHi].classList.remove('hi');
@@ -887,7 +904,7 @@ setInterval(()=>{
 window.onYouTubeIframeAPIReady=function(){
   player=new YT.Player('yt',{
     height:'100%',width:'100%',
-    playerVars:{playsinline:1,rel:0,modestbranding:1,controls:1},
+    playerVars:{playsinline:1,rel:0,modestbranding:1,controls:0,iv_load_policy:3,fs:0,disablekb:1},
     events:{
       onReady:()=>{ ytReady=true; if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
