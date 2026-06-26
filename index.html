@@ -259,9 +259,16 @@
   .np-down svg{width:22px;height:22px}
   .video-wrap{position:relative;width:100%;max-width:480px;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;
     box-shadow:0 14px 40px rgba(0,0,0,.55);flex:none;transition:max-width .25s}
-  /* phủ kín video — chặn mọi tương tác vào iframe YouTube nên không hiện logo/tiêu đề/link dẫn ra YouTube.
-     App điều khiển phát/tạm dừng bằng nút riêng nên không cần bấm trực tiếp vào video. */
-  .yt-guard{position:absolute;inset:0;z-index:5;pointer-events:auto;background:transparent;cursor:pointer}
+  /* phủ kín video — chặn mọi tương tác vào iframe YouTube (không hiện logo/link).
+     Khi đang phát: trong suốt (opacity 0) cho thấy video sạch.
+     Khi tải/tạm dừng/kết thúc: hiện ảnh bìa + nút play, che hẳn màn hình branding của YouTube. */
+  .yt-guard{position:absolute;inset:0;z-index:5;pointer-events:auto;cursor:pointer;
+    background-color:#000;background-position:center;background-size:cover;background-repeat:no-repeat;
+    display:grid;place-items:center;opacity:0;transition:opacity .25s}
+  .yt-guard.show{opacity:1}
+  .yt-guard .gplay{width:62px;height:62px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
+    display:grid;place-items:center;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  .yt-guard .gplay svg{width:26px;height:26px;margin-left:3px}
   .video-wrap.large{max-width:880px}
   .video-wrap:fullscreen{max-width:none;width:100%;height:100%;border-radius:0}
   #yt{width:100%;height:100%}
@@ -420,7 +427,7 @@
       </button>
     </div>
     <div class="np-stage">
-      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" aria-hidden="true" onclick="togglePlay()"></div></div>
+      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" id="ytGuard" aria-hidden="true" onclick="togglePlay()"><span class="gplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div></div>
       <div id="liveChat"></div>
     </div>
     <div class="np-modes">
@@ -750,6 +757,7 @@ function playCurrent(){
   $('miniTitle').textContent=s.title; $('miniChannel').textContent=s.channel;
   $('npTitle').textContent=s.title; $('npChannel').textContent=s.channel;
   $('miniThumb').src=s.thumb; $('miniThumb').style.visibility='visible';
+  const g=$('ytGuard'); if(g){ g.style.backgroundImage='url("'+s.thumb+'")'; g.classList.add('show'); }
   if(ytReady && player){ player.loadVideoById(s.id); }
   else{ pendingId=s.id; }
   pushHistory(s); updateMediaSession(s); renderQueue();
@@ -788,6 +796,7 @@ function setPlayIcon(p){
   $('bigPlay').innerHTML=p?pause:play;
   if('mediaSession' in navigator){ try{ navigator.mediaSession.playbackState=p?'playing':'paused'; }catch(e){} }
 }
+function ytCover(show){ const g=$('ytGuard'); if(g) g.classList.toggle('show', !!show); }
 function toggleShuffle(){ shuffle=!shuffle; $('shufBtn').classList.toggle('on',shuffle); toast(shuffle?'Bật trộn bài':'Tắt trộn bài'); }
 function toggleRepeat(){
   repeat = repeat==='off'?'all':repeat==='all'?'one':'off';
@@ -908,9 +917,10 @@ window.onYouTubeIframeAPIReady=function(){
     events:{
       onReady:()=>{ ytReady=true; if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
-        if(e.data===YT.PlayerState.PLAYING) setPlayIcon(true);
-        else if(e.data===YT.PlayerState.PAUSED) setPlayIcon(false);
-        else if(e.data===YT.PlayerState.ENDED) next();
+        if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); }
+        else if(e.data===YT.PlayerState.PAUSED){ setPlayIcon(false); ytCover(true); }
+        else if(e.data===YT.PlayerState.ENDED){ ytCover(true); next(); }
+        else if(e.data===YT.PlayerState.CUED || e.data===-1){ ytCover(true); }
       },
       onError:()=>{ if(QUEUE.length && CUR>=0){ toast('Bài này không phát được, chuyển bài...'); setTimeout(next,800); } }
     }
