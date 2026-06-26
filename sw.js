@@ -2,7 +2,7 @@
    - HTML: network-first (luôn lấy bản mới)
    - Tài nguyên tĩnh cùng origin: cache-first
    - KHÔNG đụng tới youtube / googleapis (để nhạc + tìm kiếm chạy bình thường) */
-const CACHE = 'qlm-v16';
+const CACHE = 'qlm-v17';
 const ASSETS = ['./', './index.html', './manifest.json', './qlm-icon.svg'];
 
 self.addEventListener('install', e => {

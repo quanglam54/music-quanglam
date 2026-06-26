@@ -1422,7 +1422,7 @@ async function checkLive(id){
   try{
     const r=await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet&id='+id+'&key='+encodeURIComponent(key));
     const d=await r.json(); const it=d.items&&d.items[0];
-    const live=!!(it&&it.snippet&&it.snippet.liveBroadcastContent==='live');
+    const live=!!(it&&it.snippet&&it.snippet.liveBroadcastContent==='live') || !!(QUEUE[CUR]&&QUEUE[CUR].live);
     if(id!==(QUEUE[CUR]||{}).id) return;           // đã chuyển bài thì bỏ qua
     curIsLive=live; document.body.classList.toggle('is-live',live); const lb=$('liveBtn'); if(lb){ lb.style.display=live?'inline-flex':'none'; lb.classList.remove('behind'); }
     if(live){ chatOn=true; document.body.classList.add('chat-on'); updateChatBtn(); loadChat(); toast('🔴 LIVE — đã mở chat trực tiếp'); }
