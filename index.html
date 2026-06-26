@@ -370,7 +370,12 @@
   .recent-row::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
   .rcard{flex:0 0 152px;cursor:pointer;scroll-snap-align:start;transition:transform .2s}
   .rcard:hover{transform:translateY(-4px)}
-  .rthumb{aspect-ratio:16/9;border-radius:11px;overflow:hidden;background:var(--bg4)}
+  .rthumb{position:relative;aspect-ratio:16/9;border-radius:11px;overflow:hidden;background:var(--bg4)}
+  .live-badge{position:absolute;left:7px;bottom:7px;background:#e0322b;color:#fff;font-size:.66rem;font-weight:700;
+    padding:3px 8px;border-radius:6px;letter-spacing:.04em;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+  .live-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#fff;animation:livepulse 1.2s infinite}
+  .recent-wrap h3 .live-dot{width:10px;height:10px;border-radius:50%;background:#e0322b;display:inline-block;animation:livepulse 1.2s infinite}
+  @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.25}}
   .rthumb img{width:100%;height:100%;object-fit:cover}
   .rcard .rti{font-size:.82rem;margin-top:7px;line-height:1.34;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted)}
 
@@ -379,6 +384,24 @@
   .vcard:hover{transform:translateY(-4px)}
   .chip:active,.searchbox .go:active,.bigctrl .bigplay:active,.mini .mctrl .play:active,
   .np-modes button:active,.head-btn button:active,.icon-btn:active,.vfav:active{transform:scale(.92)}
+
+  /* ===== LỜI BÀI HÁT (karaoke đồng bộ) ===== */
+  .lyrics-box{display:none;position:relative;width:100%;max-width:520px;margin:16px auto 4px;height:172px;overflow-y:auto;
+    text-align:center;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(transparent,#000 16%,#000 84%,transparent);
+            mask-image:linear-gradient(transparent,#000 16%,#000 84%,transparent)}
+  .lyrics-box.show{display:block}
+  .lyrics-box::-webkit-scrollbar{display:none}
+  .ly-line{font-size:1rem;line-height:1.45;color:var(--muted);padding:6px 10px;opacity:.55;transition:.22s;cursor:pointer}
+  .ly-line.on{color:var(--text);opacity:1;font-weight:600;font-size:1.14rem}
+  .ly-empty{color:var(--muted);text-align:center;padding:26px 8px;font-size:.9rem}
+  .ly-plain{color:var(--text);text-align:left;line-height:1.7;font-size:.92rem;padding:6px 12px;white-space:normal}
+
+  /* ===== MÀU CHỦ ĐẠO (accent picker) ===== */
+  .accent-dots{display:flex;gap:11px;padding:8px 14px 6px;flex-wrap:wrap}
+  .adot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.16s;outline:none}
+  .adot:hover{transform:scale(1.12)}
+  .adot.on{border-color:#fff;transform:scale(1.12)}
 </style>
 </head>
 <body>
@@ -408,6 +431,9 @@
     <div class="dr-sep"></div>
     <button class="dr-item" id="nav-playlists" onclick="nav('playlists')"><span class="ic">📑</span> Danh sách phát</button>
     <div id="drPlaylists"></div>
+    <div class="dr-sep"></div>
+    <div class="dr-title">Màu chủ đạo</div>
+    <div class="accent-dots" id="accentDots"></div>
   </div>
 </div>
 
@@ -428,6 +454,7 @@
     <div class="chips" id="chips"></div>
   </div>
 
+  <div id="liveRow"></div>
   <div id="recentRow"></div>
   <div class="list-head" id="listHead" style="display:none;margin-top:24px"></div>
   <div class="list" id="list"></div>
@@ -461,7 +488,7 @@
       </button>
     </div>
     <div class="np-stage">
-      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" id="ytGuard" aria-hidden="true" onclick="togglePlay()"><span class="gplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div></div>
+      <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" id="ytGuard" aria-hidden="true" onclick="videoTap()"><span class="gplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div></div>
       <div id="liveChat"></div>
     </div>
     <div class="np-modes">
@@ -495,6 +522,7 @@
       <p id="npChannel">—</p>
       <div class="viz" id="viz" aria-hidden="true"></div>
     </div>
+    <div class="lyrics-box" id="lyrics" aria-live="off"></div>
     <div class="pbar">
       <div class="track" id="track" onclick="seekClick(event)">
         <div class="fill" id="bigFill"></div>
@@ -565,15 +593,17 @@
 const OWNER_KEY = 'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY';
 /* 👆👆👆 ------------------------------------------------------- 👆👆👆 */
 
-const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme', playlists:'qlm_playlists' };
+const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme', playlists:'qlm_playlists', last:'qlm_last', accent:'qlm_accent', live:'qlm_live' };
 let QUEUE = [];          // danh sách đang phát
 let CUR = -1;            // vị trí hiện tại trong QUEUE
 let lastResults = [];    // kết quả tìm / nhạc xu hướng đang hiển thị
+let liveResults = [];    // video đang LIVE hiển thị ở đầu trang chủ
 let searchHead = '';     // tiêu đề danh sách
 let tab = 'search';
 let sugItems = [], sugHi = -1, sugSeq = 0, sugTimer = null;
 let shuffle = false, repeat = 'off'; // off | all | one
-let player = null, ytReady = false, pendingId = null;
+let player = null, ytReady = false, pendingId = null, pendingCue = null;
+let LYRICS=[], lyricsActive=-1, lyricsToken=0, lastSwipeAt=0, _saveTick=0;
 let isPlaying = false, seeking = false;
 
 const $ = id => document.getElementById(id);
@@ -666,7 +696,37 @@ async function loadTrending(){
     lastResults=items.slice(0,30);
     searchHead='<span class="dot">🔥</span> '+head;
     renderList();
+    loadLive(key);            // ưu tiên video đang LIVE ở đầu trang chủ
   }catch(e){ lastResults=[]; renderList(); }
+}
+
+/* ============ VIDEO ĐANG LIVE (ưu tiên đầu trang chủ) ============ */
+const LIVE_TTL=10*60*1000;   // cache 10 phút → đỡ tốn quota tìm kiếm
+const LIVE_Q=['lofi hip hop radio','nhạc chill live','vpop live','music live radio','lofi radio beats to relax'];
+async function loadLive(key){
+  /* dùng lại cache nếu còn mới (live phát 24/7 nên 10 phút là thừa) */
+  try{ const c=JSON.parse(localStorage.getItem(LS.live)||'null');
+    if(c && c.items && c.items.length && (Date.now()-c.t)<LIVE_TTL){ liveResults=c.items; renderLive(); return; }
+  }catch(e){}
+  const q=LIVE_Q[Math.floor(Math.random()*LIVE_Q.length)];
+  try{
+    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&eventType=live&videoEmbeddable=true&maxResults=12&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+    const r=await fetch(url); const d=await r.json();
+    if(d.error||!d.items) return;
+    liveResults=d.items.filter(it=>it.id&&it.id.videoId).map(it=>({
+      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
+      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url, live:true
+    }));
+    try{ localStorage.setItem(LS.live, JSON.stringify({t:Date.now(), items:liveResults})); }catch(e){}
+    renderLive();
+  }catch(e){}
+}
+function renderLive(){
+  const box=$('liveRow'); if(!box) return;
+  if(tab!=='search' || !liveResults.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="recent-wrap"><h3><span class="live-dot"></span> Đang phát trực tiếp</h3><div class="recent-row">'+
+    liveResults.map((s,i)=>'<div class="rcard" onclick="playFromList(\'live\','+i+')"><div class="rthumb"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'"><span class="live-badge">LIVE</span></div><div class="rti">'+escapeAttr(s.title)+'</div></div>').join('')+
+    '</div></div>';
 }
 
 async function runSearch(q){
@@ -744,7 +804,7 @@ function card(s,i){
 }
 function renderList(){
   clearHover();
-  renderRecent();
+  renderLive(); renderRecent();
   const box=$('list'), lh=$('listHead');
   if(tab==='playlists'){
     lh.innerHTML='<span class="dot">📑</span> Danh sách phát'; lh.style.display='flex';
@@ -776,7 +836,7 @@ function renderList(){
   box.innerHTML = data.map((s,i)=>card(s,i)).join('');
 }
 function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function srcArr(t){ if(t==='fav')return getFavs(); if(t==='hist')return getHist(); if(t==='plview'){ const p=plById(curPl); return p?p.tracks:[]; } return lastResults; }
+function srcArr(t){ if(t==='fav')return getFavs(); if(t==='hist')return getHist(); if(t==='live')return liveResults; if(t==='plview'){ const p=plById(curPl); return p?p.tracks:[]; } return lastResults; }
 
 /* ============ SHEET: LƯU VÀO PLAYLIST ============ */
 let pendingTrack=null;
@@ -823,18 +883,20 @@ function toggleFav(t,i,btn){
   if(tab==='fav') renderList(); else if(btn){ const on=isFav(s.id); btn.classList.toggle('on',on); btn.textContent=on?'❤':'♡'; }
 }
 
-function playCurrent(){
-  const s=QUEUE[CUR]; if(!s) return;
+function paintNowPlaying(s){
   $('miniTitle').textContent=s.title; $('miniChannel').textContent=s.channel;
   $('npTitle').textContent=s.title; $('npChannel').textContent=s.channel;
   $('miniThumb').src=s.thumb; $('miniThumb').style.visibility='visible';
   const g=$('ytGuard'); if(g){ g.style.backgroundImage='url("'+s.thumb+'")'; g.classList.add('show'); }
   const bg=$('npBg'); if(bg){ bg.style.backgroundImage='url("'+s.thumb+'")'; bg.classList.add('show'); }
+  updateMediaSession(s); renderQueue(); renderList();
+}
+function playCurrent(){
+  const s=QUEUE[CUR]; if(!s) return;
+  paintNowPlaying(s);
   if(ytReady && player){ player.loadVideoById(s.id); }
   else{ pendingId=s.id; }
-  pushHistory(s); updateMediaSession(s); renderQueue();
-  checkLive(s.id);
-  renderList();
+  pushHistory(s); checkLive(s.id); fetchLyrics(s); saveSession();
 }
 function next(){
   if(!QUEUE.length) return;
@@ -979,8 +1041,11 @@ setInterval(()=>{
     const pct=(cur/dur*100);
     $('bigFill').style.width=pct+'%'; $('knob').style.left=pct+'%'; $('miniFill').style.width=pct+'%';
     $('tCur').textContent=fmtTime(cur); $('tDur').textContent=fmtTime(dur);
+    if(++_saveTick%8===0) saveSession();
   }
 },500);
+/* đồng bộ lời bài hát mượt hơn (chỉ chạy khi đang phát & có lời) */
+setInterval(()=>{ if(player&&ytReady&&isPlaying&&LYRICS.length&&player.getCurrentTime){ syncLyrics(player.getCurrentTime()||0); } },220);
 
 /* ============ YOUTUBE IFRAME API ============ */
 window.onYouTubeIframeAPIReady=function(){
@@ -988,10 +1053,12 @@ window.onYouTubeIframeAPIReady=function(){
     height:'100%',width:'100%',
     playerVars:{playsinline:1,rel:0,modestbranding:1,controls:0,iv_load_policy:3,fs:0,disablekb:1},
     events:{
-      onReady:()=>{ ytReady=true; if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
+      onReady:()=>{ ytReady=true;
+        if(pendingCue){ player.cueVideoById({videoId:pendingCue.id,startSeconds:pendingCue.t}); pendingCue=null; }
+        else if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
         if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); }
-        else if(e.data===YT.PlayerState.PAUSED){ setPlayIcon(false); ytCover(true); }
+        else if(e.data===YT.PlayerState.PAUSED){ setPlayIcon(false); ytCover(true); saveSession(); }
         else if(e.data===YT.PlayerState.ENDED){ ytCover(true); next(); }
         else if(e.data===YT.PlayerState.CUED || e.data===-1){ ytCover(true); }
       },
@@ -1123,10 +1190,115 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 /* khung loading đẹp (skeleton) */
 function skeleton(){ return '<div class="sk-grid">'+Array.from({length:9}).map(()=>'<div><div class="sk-th"></div><div class="sk-l"></div><div class="sk-l short"></div></div>').join('')+'</div>'; }
 
+/* ============ TIẾP TỤC CHỖ ĐANG NGHE ============ */
+function saveSession(){
+  try{ if(!QUEUE.length||CUR<0) return;
+    const t=(player&&player.getCurrentTime)?(player.getCurrentTime()||0):0;
+    localStorage.setItem(LS.last, JSON.stringify({q:QUEUE.slice(0,80), c:CUR, t:t}));
+  }catch(e){}
+}
+function restoreSession(){
+  let d; try{ d=JSON.parse(localStorage.getItem(LS.last)||'null'); }catch(e){ d=null; }
+  if(!d||!Array.isArray(d.q)||!d.q.length||d.c==null||d.c<0||d.c>=d.q.length) return;
+  QUEUE=d.q; CUR=d.c; const s=QUEUE[CUR]; if(!s) return;
+  paintNowPlaying(s);
+  pendingCue={id:s.id, t:Math.max(0,d.t||0)};
+  fetchLyrics(s);
+  setTimeout(()=>toast('Tiếp tục từ chỗ bạn dừng nghe ▶'), 800);
+}
+
+/* ============ LỜI BÀI HÁT (lrclib.net — miễn phí, không cần key) ============ */
+function cleanTitle(t){
+  return (t||'').replace(/\(.*?\)|\[.*?\]|\{.*?\}/g,' ')
+    .replace(/official|music|video|lyrics?|audio|m\/?v|hd|4k|visualizer|performance|cover|live|karaoke|teaser|trailer/gi,' ')
+    .replace(/[|•·]\s*(prod|beat|topic).*$/i,' ')
+    .replace(/\s+/g,' ').trim();
+}
+async function fetchLyrics(s){
+  const box=$('lyrics'); if(!box) return;
+  const tok=++lyricsToken; LYRICS=[]; lyricsActive=-1;
+  box.classList.add('show'); box.innerHTML='<div class="ly-empty">Đang tìm lời bài hát…</div>';
+  try{
+    const q=cleanTitle(s.title)||s.title;
+    const r=await fetch('https://lrclib.net/api/search?q='+encodeURIComponent(q));
+    const arr=await r.json();
+    if(tok!==lyricsToken) return;
+    const hit=(arr||[]).find(x=>x&&x.syncedLyrics)||(arr||[]).find(x=>x&&x.plainLyrics);
+    if(!hit){ box.innerHTML='<div class="ly-empty">Chưa có lời cho bài này 🎵</div>'; return; }
+    if(hit.syncedLyrics){ LYRICS=parseLRC(hit.syncedLyrics); renderLyrics(); }
+    else{ box.innerHTML='<div class="ly-plain">'+escapeAttr(hit.plainLyrics).replace(/\n/g,'<br>')+'</div>'; }
+  }catch(e){ if(tok===lyricsToken) box.innerHTML='<div class="ly-empty">Không tải được lời 🎵</div>'; }
+}
+function parseLRC(str){
+  const out=[];
+  (str||'').split('\n').forEach(line=>{
+    const tags=line.match(/\[(\d{1,2}):(\d{2}(?:[.:]\d{1,3})?)\]/g);
+    if(!tags) return;
+    const text=line.replace(/\[(\d{1,2}):(\d{2}(?:[.:]\d{1,3})?)\]/g,'').trim();
+    tags.forEach(tg=>{ const m=tg.match(/\[(\d{1,2}):(\d{2}(?:[.:]\d{1,3})?)\]/);
+      if(m){ out.push({t:(+m[1])*60+parseFloat(m[2].replace(':','.')), text:text}); } });
+  });
+  out.sort((a,b)=>a.t-b.t); return out;
+}
+function renderLyrics(){
+  const box=$('lyrics'); if(!box) return;
+  if(!LYRICS.length){ box.innerHTML='<div class="ly-empty">Chưa có lời 🎵</div>'; return; }
+  box.innerHTML=LYRICS.map((l,i)=>'<p class="ly-line" data-i="'+i+'" onclick="lyricSeek('+i+')">'+(escapeAttr(l.text)||'♪')+'</p>').join('');
+}
+function lyricSeek(i){ const l=LYRICS[i]; if(l&&player&&player.seekTo){ player.seekTo(l.t,true); if(player.playVideo) player.playVideo(); } }
+function syncLyrics(cur){
+  if(!LYRICS.length) return;
+  let idx=-1; for(let i=0;i<LYRICS.length;i++){ if(LYRICS[i].t<=cur+0.2) idx=i; else break; }
+  if(idx===lyricsActive) return; lyricsActive=idx;
+  const box=$('lyrics'); if(!box) return;
+  const lines=box.getElementsByClassName('ly-line');
+  for(let i=0;i<lines.length;i++) lines[i].classList.toggle('on', i===idx);
+  const el=lines[idx];
+  if(el) box.scrollTo({top: el.offsetTop - box.clientHeight/2 + el.offsetHeight/2, behavior:'smooth'});
+}
+
+/* ============ MÀU CHỦ ĐẠO ============ */
+const ACCENTS={
+  gold:['#c2a06b','#a98748','rgba(194,160,107,.15)'],
+  coral:['#e0796b','#cf5f50','rgba(224,121,107,.15)'],
+  blue:['#5b9df0','#3f7fd6','rgba(91,157,240,.15)'],
+  green:['#5fc08a','#46a06f','rgba(95,192,138,.15)'],
+  purple:['#a583e8','#8a63d6','rgba(165,131,232,.15)'],
+  pink:['#e87fae','#d65f93','rgba(232,127,174,.15)']
+};
+function applyAccent(name){
+  const a=ACCENTS[name]||ACCENTS.gold;
+  document.body.style.setProperty('--accent',a[0]);
+  document.body.style.setProperty('--accent-d',a[1]);
+  document.body.style.setProperty('--accent-soft',a[2]);
+  try{ localStorage.setItem(LS.accent,name); }catch(e){}
+  renderAccentDots(name);
+}
+function renderAccentDots(active){
+  const box=$('accentDots'); if(!box) return;
+  active=active||localStorage.getItem(LS.accent)||'gold';
+  box.innerHTML=Object.keys(ACCENTS).map(k=>'<button class="adot'+(k===active?' on':'')+'" style="background:'+ACCENTS[k][0]+'" onclick="applyAccent(\''+k+'\')" aria-label="Màu '+k+'"></button>').join('');
+}
+
+/* ============ VUỐT TRÊN ĐIỆN THOẠI ============ */
+function setupSwipe(){
+  const stage=document.querySelector('.np-stage'); if(!stage) return;
+  let x0=0,y0=0;
+  stage.addEventListener('touchstart',e=>{ const t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; },{passive:true});
+  stage.addEventListener('touchend',e=>{ const t=e.changedTouches[0]; const dx=t.clientX-x0, dy=t.clientY-y0;
+    if(Math.abs(dx)>52 && Math.abs(dx)>Math.abs(dy)){ lastSwipeAt=Date.now(); if(dx<0) next(); else prev(); }
+    else if(dy>72 && Math.abs(dy)>Math.abs(dx)){ lastSwipeAt=Date.now(); closePanel(); }
+  },{passive:true});
+}
+function videoTap(){ if(Date.now()-lastSwipeAt<420) return; togglePlay(); }
+
 /* ============ INIT ============ */
 applyTheme(localStorage.getItem(LS.theme) || 'dark');
 setupMediaSession(); renderQueue();
 renderChips(); buildViz(); updateKeyState(); renderDrPlaylists(); tab='search'; switchTabUI(); setupHoverPreview();
+applyAccent(localStorage.getItem(LS.accent) || 'gold');
+restoreSession(); setupSwipe();
+window.addEventListener('beforeunload', saveSession);
 if(getKey()){ loadTrending(); }
 else{ renderList(); setTimeout(openKey, 500); }
 
