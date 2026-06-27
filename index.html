@@ -396,7 +396,10 @@
   .vfs-opt:hover{background:rgba(255,255,255,.2)}
   .vfs-opt.on{background:var(--accent);color:#191919;font-weight:600}
   .vfs-hint{font-size:.73rem;color:var(--muted);padding:4px 6px;line-height:1.4}
-  @media(max-width:560px){ .vf-vol,.vf-volbtn{display:none} .vf-row button{width:32px;height:32px} }
+  @media(max-width:560px){ .vf-vol,.vf-volbtn{display:none} .vf-row button{width:32px;height:32px}
+    /* điện thoại: tách thanh tua xa hàng nút + làm dày hơn cho dễ tua */
+    .vf-prog{height:8px;margin-bottom:12px}
+    .vf-prog .vf-knob{width:16px;height:16px} }
   /* sân khấu: video + chat trực tiếp */
   .np-stage{display:flex;gap:14px;width:100%;max-width:820px;margin:0 auto;align-items:stretch}
   .np-stage .video-wrap{flex:1;max-width:none}
