@@ -431,6 +431,10 @@
   .rel-item .rmeta{flex:1;min-width:0}
   .rel-item .rti{font-size:.88rem;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .rel-item .rch{font-size:.77rem;color:var(--muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rel-th{position:relative;flex:none}
+  .rel-dur{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.82);color:#fff;font-size:.68rem;font-weight:600;
+    padding:1px 5px;border-radius:4px;line-height:1.4;pointer-events:none}
+  body.light .rel-dur{background:rgba(20,18,12,.82)}
   .rel-empty{color:var(--muted);font-size:.84rem;padding:8px 4px}
   @media(min-width:900px){
     #npPanel.open .np-body{display:grid;grid-template-columns:minmax(0,1fr) 360px;align-items:start;
@@ -809,7 +813,7 @@ function saveFavs(a){ localStorage.setItem(LS.favs, JSON.stringify(a)); }
 function getHist(){ try{ return JSON.parse(localStorage.getItem(LS.hist)||'[]'); }catch(e){ return []; } }
 function pushHistory(s){
   let h=getHist().filter(x=>x.id!==s.id);
-  h.unshift({id:s.id,title:s.title,channel:s.channel,thumb:s.thumb});
+  h.unshift({id:s.id,title:s.title,channel:s.channel,thumb:s.thumb,dur:s.dur,views:s.views});
   localStorage.setItem(LS.hist, JSON.stringify(h.slice(0,60)));
 }
 /* ===== GIAO DIỆN SÁNG / TỐI ===== */
@@ -939,6 +943,7 @@ async function loadTrending(){
 
 /* ============ VIDEO ĐANG LIVE (ưu tiên đầu trang chủ) ============ */
 const LIVE_TTL=10*60*1000;   // cache 10 phút → đỡ tốn quota tìm kiếm
+const SEARCH_TTL=4*60*60*1000;   // cache kết quả tìm 4 giờ (search.list tốn 100 điểm/lần)
 const LIVE_Q=['lofi hip hop radio','nhạc chill live','vpop live','music live radio','lofi radio beats to relax'];
 async function loadLive(key){
   /* dùng lại cache nếu còn mới (live phát 24/7 nên 10 phút là thừa) */
@@ -971,6 +976,12 @@ async function runSearch(q){
   if(!key){ openKey(); return; }
   hideSug(); switchTab('search');
   $('list').className=''; $('list').innerHTML=skeleton();
+  searchHead='<span class="dot">🔎</span> Kết quả cho "'+escapeAttr(q)+'"';
+  /* dùng lại cache nếu còn mới → đỡ tốn quota (cùng từ khoá không gọi API lại) */
+  const ck='qlm_search_'+q.toLowerCase().trim();
+  try{ const c=JSON.parse(localStorage.getItem(ck)||'null');
+    if(c&&c.items&&c.items.length&&(Date.now()-c.t)<SEARCH_TTL){ lastResults=c.items; renderList(); return; }
+  }catch(e){}
   try{
     const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=24&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
     const r=await fetch(url);
@@ -987,9 +998,11 @@ async function runSearch(q){
       id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
       thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url
     }));
-    searchHead='<span class="dot">🔎</span> Kết quả cho "'+escapeAttr(q)+'"';
     renderList();
-    enrichDetails(lastResults,key).then(()=>{ if(tab==='search') renderList(); }); // bổ sung thời lượng + lượt xem
+    enrichDetails(lastResults,key).then(()=>{        // bổ sung thời lượng + lượt xem
+      if(tab==='search') renderList();
+      try{ localStorage.setItem(ck, JSON.stringify({t:Date.now(), items:lastResults})); }catch(e){}
+    });
   }catch(err){
     $('list').innerHTML='<div class="err">⚠️ Không kết nối được. Kiểm tra mạng rồi thử lại.</div>';
   }
@@ -1094,7 +1107,7 @@ function addToPlaylist(id){
   if(!pendingTrack) return;
   const pls=getPlaylists(), p=pls.find(x=>x.id===id); if(!p) return;
   if(p.tracks.some(x=>x.id===pendingTrack.id)){ p.tracks=p.tracks.filter(x=>x.id!==pendingTrack.id); toast('Đã gỡ khỏi "'+p.name+'"'); }
-  else{ p.tracks.unshift({id:pendingTrack.id,title:pendingTrack.title,channel:pendingTrack.channel,thumb:pendingTrack.thumb}); toast('Đã lưu vào "'+p.name+'" ✓'); }
+  else{ p.tracks.unshift({id:pendingTrack.id,title:pendingTrack.title,channel:pendingTrack.channel,thumb:pendingTrack.thumb,dur:pendingTrack.dur,views:pendingTrack.views}); toast('Đã lưu vào "'+p.name+'" ✓'); }
   savePlaylists(pls); renderSheetPlaylists();
   if(tab==='plview'||tab==='playlists') renderList();
 }
@@ -1119,7 +1132,7 @@ function toggleFav(t,i,btn){
   const s=srcArr(t)[i]; if(!s) return;
   let favs=getFavs();
   if(favs.some(f=>f.id===s.id)){ favs=favs.filter(f=>f.id!==s.id); toast('Đã bỏ yêu thích'); }
-  else{ favs.unshift({id:s.id,title:s.title,channel:s.channel,thumb:s.thumb}); toast('Đã lưu yêu thích ❤'); }
+  else{ favs.unshift({id:s.id,title:s.title,channel:s.channel,thumb:s.thumb,dur:s.dur,views:s.views}); toast('Đã lưu yêu thích ❤'); }
   saveFavs(favs);
   if(tab==='fav') renderList(); else if(btn){ const on=isFav(s.id); btn.classList.toggle('on',on); btn.textContent=on?'❤':'♡'; }
 }
@@ -1216,7 +1229,8 @@ async function panelSearch(e){
       id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
       thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url }));
     if(!panelResults.length){ box.innerHTML='<div class="rel-empty">Không tìm thấy kết quả.</div>'; return; }
-    box.innerHTML=panelResults.map((s,i)=>'<div class="rel-item" onclick="playPanelResult('+i+')"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'"><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+'</div></div></div>').join('');
+    box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')')).join('');
+    enrichDetails(panelResults,key).then(()=>{ box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')')).join(''); }); // bổ sung thời lượng + view
   }catch(err){ box.innerHTML='<div class="rel-empty">Không kết nối được. Kiểm tra mạng.</div>'; }
 }
 function playPanelResult(i){
@@ -1375,6 +1389,7 @@ window.onYouTubeIframeAPIReady=function(){
     playerVars:{playsinline:1,rel:0,modestbranding:1,controls:0,iv_load_policy:3,fs:0,disablekb:1},
     events:{
       onReady:()=>{ ytReady=true;
+        try{ const sv=localStorage.getItem('qlm_vol'); if(sv!=null){ player.setVolume(+sv); const vEl=$('vol'); if(vEl) vEl.value=sv; } }catch(e){}
         if(pendingCue){ player.cueVideoById({videoId:pendingCue.id,startSeconds:pendingCue.t}); pendingCue=null; }
         else if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
@@ -1423,7 +1438,7 @@ function cycleSleep(){
   lbl.textContent=sleepMin+' phút'; btn.classList.add('on'); toast('Hẹn tắt nhạc sau '+sleepMin+' phút');
   sleepTO=setTimeout(()=>{ userPaused=true; wantPlay=false; keepAlive(false); if(player&&player.pauseVideo) player.pauseVideo(); sleepMin=0; lbl.textContent='Hẹn giờ'; btn.classList.remove('on'); toast('⏰ Hết giờ — đã tạm dừng nhạc'); }, sleepMin*60000);
 }
-function setVol(v){ if(player&&player.setVolume) player.setVolume(+v); }
+function setVol(v){ if(player&&player.setVolume) player.setVolume(+v); try{ localStorage.setItem('qlm_vol',v); }catch(e){} }
 /* về đúng thời điểm phát trực tiếp (sau khi đã tua lại) */
 function goLive(){
   if(!player||!player.seekTo) return;
@@ -1486,11 +1501,17 @@ function moveQueue(i,d){
 /* ============ VIDEO LIÊN QUAN (cột phải, kiểu YouTube) ============ */
 let RELATED=[];
 const REL_TTL=24*60*60*1000;   // nhớ kết quả 24h để đỡ tốn quota
+/* dòng video kiểu danh sách (liên quan / panel) — có thời lượng + lượt xem */
+function relRowHTML(s,onclick){
+  const dur=s.dur?'<span class="rel-dur">'+fmtDur(s.dur)+'</span>':'';
+  const views=(s.views!=null)?'<span class="vviews"> · '+fmtViews(s.views)+'</span>':'';
+  return '<div class="rel-item" onclick="'+onclick+'"><div class="rel-th"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'">'+dur+'</div><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+views+'</div></div></div>';
+}
 function renderRelated(items){
   RELATED=items||[];
   const box=$('relatedList'); if(!box) return;
   if(!RELATED.length){ box.innerHTML='<div class="rel-empty">Chưa có video liên quan.</div>'; return; }
-  box.innerHTML=RELATED.map((s,i)=>'<div class="rel-item" onclick="playRelated('+i+')"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'"><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+'</div></div></div>').join('');
+  box.innerHTML=RELATED.map((s,i)=>relRowHTML(s,'playRelated('+i+')')).join('');
 }
 async function loadRelatedList(s){
   const box=$('relatedList'); if(!box||!s) return;
@@ -1508,6 +1529,7 @@ async function loadRelatedList(s){
     const items=d.items.filter(it=>it.id&&it.id.videoId&&it.id.videoId!==s.id).map(it=>({
       id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
       thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url })).slice(0,14);
+    await enrichDetails(items,key);   // bổ sung thời lượng + lượt xem
     try{ localStorage.setItem('qlm_rel_'+s.id, JSON.stringify({t:Date.now(),items})); }catch(e){}
     if((QUEUE[CUR]||{}).id===s.id) renderRelated(items);
   }catch(e){ box.innerHTML='<div class="rel-empty">Không tải được video liên quan.</div>'; }
@@ -1768,6 +1790,7 @@ setupMediaSession(); renderQueue();
 renderChips(); buildViz(); buildFx(); updateKeyState(); renderDrPlaylists(); tab='search'; switchTabUI(); setupHoverPreview();
 applyAccent(localStorage.getItem(LS.accent) || 'gold');
 setupSwipe(); setupSeekDrag();
+try{ const _sv=localStorage.getItem('qlm_vol'); if(_sv!=null){ const _v=$('vol'); if(_v) _v.value=_sv; } }catch(e){}
 window.addEventListener('beforeunload', saveSession);
 const _params=new URLSearchParams(location.search);
 const _shareV=_params.get('v'), _shareQ=_params.get('q');
