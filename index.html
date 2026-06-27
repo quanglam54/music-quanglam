@@ -435,6 +435,20 @@
     .np-side{max-width:none;margin:0;position:sticky;top:14px;max-height:calc(100vh - 30px);overflow-y:auto}
     .np-side .queue-wrap{max-width:none}
   }
+  /* ===== TÌM KIẾM NGAY TRONG PANEL ĐANG PHÁT ===== */
+  .np-search{width:100%;max-width:520px;margin:4px auto 8px;flex:none}
+  .np-search-box{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--line);
+    border-radius:13px;padding:5px 6px 5px 14px;transition:.18s}
+  .np-search-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .np-search-box svg{width:18px;height:18px;color:var(--muted);flex:none}
+  .np-search-box input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--text);font-size:.98rem;padding:9px 0}
+  .np-search-box input::placeholder{color:#6b7280}
+  .np-search-box .npgo{background:var(--accent);color:#191919;font-weight:600;padding:9px 16px;border-radius:10px;flex:none;font-size:.9rem}
+  .np-search-box .npgo:hover{background:var(--accent-d)}
+  .np-search-box .npx{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted);background:var(--bg4);flex:none}
+  .np-search-box .npx:hover{color:var(--text)}
+  .np-results{max-height:48vh;overflow-y:auto;margin-top:10px;scrollbar-width:thin}
+  @media(min-width:900px){ #npPanel.open .np-main .np-search{max-width:none} }
   .np-modes{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center}
   .np-modes button{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--line);
     color:#c7ccd6;border-radius:11px;padding:9px 16px;font-size:.85rem;transition:.16s}
@@ -641,9 +655,18 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <span class="np-top-label">Đang phát</span>
-      <button class="np-down" onclick="backToSearch()" title="Tìm bài khác">
+      <button class="np-down" onclick="togglePanelSearch()" title="Tìm bài khác (tìm ngay tại đây)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </button>
+    </div>
+    <div class="np-search" id="npSearch" style="display:none">
+      <form class="np-search-box" onsubmit="panelSearch(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="npQ" type="text" placeholder="Tìm bài khác để phát ngay..." autocomplete="off">
+        <button type="submit" class="npgo">Tìm</button>
+        <button type="button" class="npx" onclick="closePanelSearch()" title="Đóng" aria-label="Đóng">✕</button>
+      </form>
+      <div id="npResults" class="np-results"></div>
     </div>
     <div class="np-stage">
       <div class="video-wrap" id="videoWrap"><div id="yt"></div><div class="yt-guard" id="ytGuard" aria-hidden="true" onclick="videoTap()"><span class="gplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="vf-settings" id="vfSettings"><div class="vfs-sec"><div class="vfs-title">⏩ Tốc độ phát</div><div class="vfs-opts" id="vfsRates"></div></div><div class="vfs-sec"><div class="vfs-title">🎚 Chất lượng</div><div class="vfs-opts" id="vfsQual"></div></div></div><div class="vf-ctrl" id="vfCtrl">
@@ -1128,6 +1151,41 @@ function openPanel(){ $('npPanel').classList.add('open'); }
 function closePanel(){ $('npPanel').classList.remove('open'); }
 function togglePanel(e){ if(e&&e.target.closest&&e.target.closest('.mctrl')) return; $('npPanel').classList.toggle('open'); }
 function backToSearch(){ closePanel(); window.scrollTo({top:0,behavior:'smooth'}); setTimeout(()=>$('q').focus(),300); }
+/* ===== TÌM KIẾM NGAY TRONG PANEL ĐANG PHÁT (không thoát ra trang chủ) ===== */
+let panelResults=[];
+function togglePanelSearch(){
+  const box=$('npSearch'); if(!box) return;
+  if(box.style.display==='none'){ box.style.display='block'; setTimeout(()=>$('npQ').focus(),60); box.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  else closePanelSearch();
+}
+function closePanelSearch(){ const box=$('npSearch'); if(box) box.style.display='none'; }
+async function panelSearch(e){
+  e.preventDefault();
+  const q=$('npQ').value.trim(); if(!q) return;
+  const key=getKey(); if(!key){ openKey(); return; }
+  const box=$('npResults');
+  box.innerHTML='<div class="rel-empty">Đang tìm…</div>';
+  try{
+    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=20&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+    const r=await fetch(url); const d=await r.json();
+    if(d.error){
+      const reason=(d.error.errors&&d.error.errors[0]&&d.error.errors[0].reason)||'';
+      box.innerHTML='<div class="rel-empty">⚠️ '+(reason==='quotaExceeded'?'Hết lượt tìm miễn phí hôm nay.':'Lỗi tìm kiếm, thử lại.')+'</div>';
+      return;
+    }
+    panelResults=(d.items||[]).filter(it=>it.id&&it.id.videoId).map(it=>({
+      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
+      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url }));
+    if(!panelResults.length){ box.innerHTML='<div class="rel-empty">Không tìm thấy kết quả.</div>'; return; }
+    box.innerHTML=panelResults.map((s,i)=>'<div class="rel-item" onclick="playPanelResult('+i+')"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'"><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+'</div></div></div>').join('');
+  }catch(err){ box.innerHTML='<div class="rel-empty">Không kết nối được. Kiểm tra mạng.</div>'; }
+}
+function playPanelResult(i){
+  const s=panelResults[i]; if(!s) return;
+  QUEUE=panelResults.slice(); CUR=i; playCurrent();
+  closePanelSearch(); $('npQ').value='';
+  document.querySelector('.np-body').scrollTo({top:0,behavior:'smooth'});
+}
 /* chế độ xem: phóng to (rạp) / toàn màn hình */
 function toggleLarge(){ const v=$('videoWrap'); const on=v.classList.toggle('large'); $('largeLbl').textContent=on?'Thu lại':'Phóng to'; }
 function toggleTheater(){ const on=document.body.classList.toggle('theater'); $('largeLbl').textContent=on?'Bình thường':'Rạp phim'; $('largeBtn').classList.toggle('on',on); }
