@@ -145,7 +145,8 @@
   @media(max-width:560px){ .mq-item{font-size:.88rem;padding:0 24px} .marquee{padding:8px 0;margin:12px 0 2px} }
 
   /* ===== SEARCH ===== */
-  .search-area{padding:22px 0 6px}
+  /* ô tìm kiếm dính cố định ngay dưới header khi cuộn trang (giống YouTube) */
+  .search-area{position:sticky;top:var(--hh,62px);z-index:30;background:var(--bg);padding:14px 0 12px}
   .searchbox{position:relative;display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--line);
     border-radius:16px;padding:6px 6px 6px 16px;transition:.2s}
   /* gợi ý tìm kiếm */
@@ -394,7 +395,9 @@
   .vf-row button svg{width:20px;height:20px}
   .vf-time{color:#fff;font-size:.74rem;white-space:nowrap;margin:0 5px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
   .vf-row .sp{flex:1}
-  .vf-volbtn{color:#fff;display:grid;place-items:center;width:24px;flex:none}
+  .vf-volbtn{color:#fff;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;flex:none;
+    cursor:pointer;background:transparent;transition:.16s}
+  .vf-volbtn:hover{background:rgba(255,255,255,.22)}
   .vf-volbtn svg{width:18px;height:18px}
   .vf-vol{width:76px;flex:none;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;background:rgba(255,255,255,.4);outline:none}
   .vf-vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
@@ -439,7 +442,22 @@
   .np-side-h{font-size:.92rem;font-weight:600;margin:6px 4px 12px;color:var(--text)}
   .related-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
   .rel-item{display:flex;gap:10px;cursor:pointer;border-radius:11px;padding:6px;transition:.14s}
+  .rel-item{position:relative}
   .rel-item:hover{background:var(--bg3)}
+  /* nút ⋮ (3 chấm) trên mỗi video liên quan — hiện khi hover, như YouTube */
+  .rel-more{flex:none;align-self:flex-start;width:30px;height:30px;border-radius:50%;color:var(--muted);
+    font-size:1.2rem;line-height:1;display:grid;place-items:center;opacity:0;transition:.14s}
+  .rel-item:hover .rel-more{opacity:1}
+  .rel-more:hover{background:var(--bg4);color:var(--text)}
+  @media(hover:none){ .rel-more{opacity:1} }   /* điện thoại không hover → luôn hiện */
+  /* popup menu (Xem sau / Tải xuống / Chia sẻ) */
+  .ctx-menu{position:fixed;z-index:88;min-width:200px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:13px;padding:6px;box-shadow:0 16px 44px rgba(0,0,0,.55);display:none}
+  .ctx-menu.show{display:block}
+  .ctx-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 13px;border-radius:10px;
+    color:var(--text);font-size:.93rem;transition:.14s}
+  .ctx-item:hover{background:var(--bg3)}
+  .ctx-item .ic{width:20px;text-align:center;flex:none;font-size:1.05rem}
   .rel-item img{width:128px;height:72px;border-radius:9px;object-fit:cover;flex:none;background:var(--bg4)}
   .rel-item .rmeta{flex:1;min-width:0}
   .rel-item .rti{font-size:.88rem;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -620,6 +638,7 @@
     <button class="dr-item" id="nav-search" onclick="nav('search')"><span class="ic">🏠</span> Trang chủ</button>
     <button class="dr-item" id="nav-hist" onclick="nav('hist')"><span class="ic">🕘</span> Video đã xem</button>
     <button class="dr-item" id="nav-fav" onclick="nav('fav')"><span class="ic">❤️</span> Yêu thích</button>
+    <button class="dr-item" id="nav-later" onclick="nav('later')"><span class="ic">🕒</span> Xem sau</button>
     <div class="dr-sep"></div>
     <button class="dr-item" id="nav-playlists" onclick="nav('playlists')"><span class="ic">📑</span> Danh sách phát</button>
     <div id="drPlaylists"></div>
@@ -645,8 +664,8 @@
       <button type="submit" class="go">Tìm</button>
       <div class="sugbox" id="sugbox"></div>
     </form>
-    <div class="chips" id="chips"></div>
   </div>
+  <div class="chips" id="chips"></div>
 
   <div id="liveRow"></div>
   <div id="recentRow"></div>
@@ -702,7 +721,7 @@
           <span class="vf-time"><span id="tCur">0:00</span> / <span id="tDur">0:00</span></span>
           <span class="sp"></span>
           <button id="liveBtn" class="vf-live" onclick="event.stopPropagation();goLive()" title="Về phát trực tiếp" style="display:none">TRỰC TIẾP</button>
-          <span class="vf-volbtn" title="Âm lượng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg></span>
+          <button class="vf-volbtn" id="volBtn" onclick="event.stopPropagation();toggleMute()" title="Tắt tiếng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg></button>
           <input type="range" id="vol" class="vf-vol" min="0" max="100" value="100" oninput="setVol(this.value)" onclick="event.stopPropagation()">
           <button id="vfGear" onclick="event.stopPropagation();toggleSettings()" title="Cài đặt: tốc độ phát, chất lượng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
           <button id="vfFull" onclick="event.stopPropagation();goFullscreen()" title="Toàn màn hình / Thu nhỏ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
@@ -753,10 +772,6 @@
       <div id="liveChat"></div>
       <div class="np-side-h">▶ Tiếp theo · Video liên quan</div>
       <div id="relatedList" class="related-list"></div>
-      <div class="queue-wrap">
-        <h4>🎵 Hàng chờ phát</h4>
-        <div id="queueList"></div>
-      </div>
     </aside>
   </div>
 </div>
@@ -796,6 +811,12 @@
   </div>
 </div>
 
+<!-- POPUP MENU cho video liên quan (Xem sau / Tải xuống / Chia sẻ) -->
+<div class="ctx-menu" id="ctxMenu">
+  <button class="ctx-item" id="ctxLater" onclick="ctxAction('later')"><span class="ic">🕒</span> Lưu vào Xem sau</button>
+  <button class="ctx-item" onclick="ctxAction('share')"><span class="ic">🔗</span> Chia sẻ</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -806,7 +827,7 @@
 const OWNER_KEY = 'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY';
 /* 👆👆👆 ------------------------------------------------------- 👆👆👆 */
 
-const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme', playlists:'qlm_playlists', last:'qlm_last', accent:'qlm_accent', live:'qlm_live' };
+const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme', playlists:'qlm_playlists', last:'qlm_last', accent:'qlm_accent', live:'qlm_live', later:'qlm_later' };
 let QUEUE = [];          // danh sách đang phát
 let CUR = -1;            // vị trí hiện tại trong QUEUE
 let lastResults = [];    // kết quả tìm / nhạc xu hướng đang hiển thị
@@ -824,6 +845,48 @@ const $ = id => document.getElementById(id);
 function getKey(){ return (OWNER_KEY && OWNER_KEY.trim()) || localStorage.getItem(LS.key) || ''; }
 function getFavs(){ try{ return JSON.parse(localStorage.getItem(LS.favs)||'[]'); }catch(e){ return []; } }
 function saveFavs(a){ localStorage.setItem(LS.favs, JSON.stringify(a)); }
+/* ===== XEM SAU (Watch Later) ===== */
+function getLater(){ try{ return JSON.parse(localStorage.getItem(LS.later)||'[]'); }catch(e){ return []; } }
+function saveLater(a){ localStorage.setItem(LS.later, JSON.stringify(a)); }
+function isLater(id){ return getLater().some(x=>x.id===id); }
+function toggleLater(s){
+  if(!s) return;
+  let a=getLater();
+  if(a.some(x=>x.id===s.id)){ a=a.filter(x=>x.id!==s.id); saveLater(a); toast('Đã bỏ khỏi Xem sau'); }
+  else{ a.unshift({id:s.id,title:s.title,channel:s.channel,thumb:s.thumb,dur:s.dur,views:s.views}); saveLater(a); toast('Đã lưu vào Xem sau 🕒'); }
+  if(tab==='later') renderList();
+}
+/* ===== CHIA SẺ (dùng chung cho menu ⋮) ===== */
+function shareTrack(s){
+  if(!s){ toast('Không có bài để chia sẻ'); return; }
+  const base=(location.origin && location.origin!=='null') ? (location.origin+location.pathname) : 'https://quanglam-music.netlify.app/';
+  const url=base+'?v='+s.id;
+  if(navigator.share){ navigator.share({ title:s.title, text:s.title+' — nghe trên quanglam·music', url }).catch(()=>{}); }
+  else{ try{ navigator.clipboard.writeText(url); toast('Đã copy link 📋'); }catch(e){ toast(url); } }
+}
+/* ===== POPUP MENU ⋮ cho video liên quan / kết quả tìm trong panel ===== */
+let ctxTrack=null;
+function openCtx(ev,src,i){
+  ev.stopPropagation(); ev.preventDefault();
+  ctxTrack = src==='rel' ? RELATED[i] : (src==='panel' ? panelResults[i] : null);
+  if(!ctxTrack) return;
+  const m=$('ctxMenu'); if(!m) return;
+  const lb=$('ctxLater'); if(lb) lb.innerHTML='<span class="ic">🕒</span> '+(isLater(ctxTrack.id)?'Bỏ khỏi Xem sau':'Lưu vào Xem sau');
+  m.classList.add('show');
+  const mw=m.offsetWidth||200, mh=m.offsetHeight||150;
+  let x=ev.clientX, y=ev.clientY;
+  if(x+mw > window.innerWidth-8) x=window.innerWidth-mw-8;
+  if(y+mh > window.innerHeight-8) y=window.innerHeight-mh-8;
+  m.style.left=Math.max(8,x)+'px'; m.style.top=Math.max(8,y)+'px';
+}
+function closeCtx(){ const m=$('ctxMenu'); if(m) m.classList.remove('show'); }
+function ctxAction(act){
+  const s=ctxTrack; closeCtx(); if(!s) return;
+  if(act==='later') toggleLater(s);
+  else if(act==='share') shareTrack(s);
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('#ctxMenu')) closeCtx(); });
+window.addEventListener('scroll',closeCtx,true);
 function getHist(){ try{ return JSON.parse(localStorage.getItem(LS.hist)||'[]'); }catch(e){ return []; } }
 function pushHistory(s){
   let h=getHist().filter(x=>x.id!==s.id);
@@ -937,27 +1000,31 @@ async function fetchTrending(region,key){
     views:+((it.statistics&&it.statistics.viewCount))||0
   }));
 }
-/* mỗi lần vào / reload chọn ngẫu nhiên 1 bảng (VN nhiều hơn) rồi trộn → luôn mới mẻ */
+/* mỗi lần vào / reload XOAY VÒNG sang vùng khác (không trùng liền) rồi trộn → luôn mới mẻ */
 const TRENDING_SRC=[
-  {r:'VN',h:'Thịnh hành tại Việt Nam'},
-  {r:'VN',h:'Thịnh hành tại Việt Nam'},
   {r:'VN',h:'Thịnh hành tại Việt Nam'},
   {r:'US',h:'Thịnh hành US-UK'},
   {r:'KR',h:'K-pop đang thịnh hành'},
-  {r:'JP',h:'Nhạc Nhật thịnh hành'}
+  {r:'VN',h:'Đang hot tại Việt Nam'},
+  {r:'JP',h:'Nhạc Nhật thịnh hành'},
+  {r:'GB',h:'Thịnh hành tại Anh Quốc'}
 ];
 async function loadTrending(){
   const key=getKey(); if(!key) return;
   tab='search'; switchTabUI();
   $('list').className=''; $('list').innerHTML=skeleton();
-  const pick=TRENDING_SRC[Math.floor(Math.random()*TRENDING_SRC.length)];
+  /* xoay vòng: mỗi lần load lấy vùng kế tiếp (lưu vị trí trong localStorage) → reload là đổi */
+  let ti=parseInt(localStorage.getItem('qlm_trend_i'),10); if(isNaN(ti)) ti=0;
+  ti=((ti%TRENDING_SRC.length)+TRENDING_SRC.length)%TRENDING_SRC.length;
+  try{ localStorage.setItem('qlm_trend_i', (ti+1)%TRENDING_SRC.length); }catch(e){}
+  const pick=TRENDING_SRC[ti];
   try{
     let items=await fetchTrending(pick.r,key); let head=pick.h;
     if(!items||!items.length){ items=await fetchTrending('VN',key); head='Thịnh hành tại Việt Nam'; }
     if(!items){ lastResults=[]; renderList(); return; }
     shuffleArr(items);
     lastResults=items.slice(0,30);
-    searchHead='<span class="dot">🔥</span> '+head;
+    searchHead='<span class="dot">🔥</span> '+head+'<span class="head-btn"><button onclick="event.stopPropagation();loadTrending()" title="Đổi danh sách thịnh hành khác">🔄 Làm mới</button></span>';
     renderList();
     loadLive(key);            // ưu tiên video đang LIVE ở đầu trang chủ
   }catch(e){ lastResults=[]; renderList(); }
@@ -1035,7 +1102,7 @@ let curPl = null; // playlist đang xem
 function openDrawer(){ $('drawer').classList.add('open'); }
 function closeDrawer(){ $('drawer').classList.remove('open'); }
 function switchTabUI(){
-  ['search','hist','fav','playlists'].forEach(k=>{
+  ['search','hist','fav','later','playlists'].forEach(k=>{
     const el=$('nav-'+k); if(el) el.classList.toggle('on', tab===k || (tab==='plview'&&k==='playlists'));
   });
 }
@@ -1099,11 +1166,13 @@ function renderList(){
       +'<button onclick="delPlaylist(\''+curPl+'\')">🗑 Xoá</button></span>';
     lh.style.display='flex';
   } else if(tab==='fav'){ lh.innerHTML='<span class="dot">❤</span> Bài yêu thích'; lh.style.display=data.length?'flex':'none'; }
+  else if(tab==='later'){ lh.innerHTML='<span class="dot">🕒</span> Xem sau'; lh.style.display=data.length?'flex':'none'; }
   else if(tab==='hist'){ lh.innerHTML='<span class="dot">🕘</span> Video đã xem'; lh.style.display=data.length?'flex':'none'; }
   else if(data.length){ lh.innerHTML=searchHead||''; lh.style.display=searchHead?'flex':'none'; }
   else lh.style.display='none';
   if(!data.length){
     if(tab==='fav') box.innerHTML=hint('♡','Chưa có bài yêu thích.','Bấm trái tim ở góc mỗi video để lưu.');
+    else if(tab==='later') box.innerHTML=hint('🕒','Chưa có bài nào trong Xem sau.','Bấm ⋮ ở video liên quan → "Lưu vào Xem sau".');
     else if(tab==='hist') box.innerHTML=hint('🕘','Chưa xem video nào.','Video bạn nghe sẽ hiện ở đây.');
     else if(tab==='plview') box.innerHTML=hint('🎵','Playlist trống.','Bấm ＋ ở video bất kỳ để thêm vào đây.');
     else box.innerHTML=hint('🎧','Tìm một bài hát để bắt đầu —','hoặc bấm thẻ gợi ý phía trên.');
@@ -1112,7 +1181,7 @@ function renderList(){
   box.innerHTML = data.map((s,i)=>card(s,i)).join('');
 }
 function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function srcArr(t){ if(t==='fav')return getFavs(); if(t==='hist')return getHist(); if(t==='live')return liveResults; if(t==='plview'){ const p=plById(curPl); return p?p.tracks:[]; } return lastResults; }
+function srcArr(t){ if(t==='fav')return getFavs(); if(t==='hist')return getHist(); if(t==='later')return getLater(); if(t==='live')return liveResults; if(t==='plview'){ const p=plById(curPl); return p?p.tracks:[]; } return lastResults; }
 
 /* ============ SHEET: LƯU VÀO PLAYLIST ============ */
 let pendingTrack=null;
@@ -1259,8 +1328,8 @@ async function panelSearch(e){
       id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
       thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url }));
     if(!panelResults.length){ box.innerHTML='<div class="rel-empty">Không tìm thấy kết quả.</div>'; return; }
-    box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')')).join('');
-    enrichDetails(panelResults,key).then(()=>{ box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')')).join(''); }); // bổ sung thời lượng + view
+    box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')','panel',i)).join('');
+    enrichDetails(panelResults,key).then(()=>{ box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')','panel',i)).join(''); }); // bổ sung thời lượng + view
   }catch(err){ box.innerHTML='<div class="rel-empty">Không kết nối được. Kiểm tra mạng.</div>'; }
 }
 function playPanelResult(i){
@@ -1420,6 +1489,7 @@ window.onYouTubeIframeAPIReady=function(){
     events:{
       onReady:()=>{ ytReady=true;
         try{ const sv=localStorage.getItem('qlm_vol'); if(sv!=null){ player.setVolume(+sv); const vEl=$('vol'); if(vEl) vEl.value=sv; } }catch(e){}
+        updateVolIcon();
         if(pendingCue){ player.cueVideoById({videoId:pendingCue.id,startSeconds:pendingCue.t}); pendingCue=null; }
         else if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
@@ -1468,7 +1538,40 @@ function cycleSleep(){
   lbl.textContent=sleepMin+' phút'; btn.classList.add('on'); toast('Hẹn tắt nhạc sau '+sleepMin+' phút');
   sleepTO=setTimeout(()=>{ userPaused=true; wantPlay=false; keepAlive(false); if(player&&player.pauseVideo) player.pauseVideo(); sleepMin=0; lbl.textContent='Hẹn giờ'; btn.classList.remove('on'); toast('⏰ Hết giờ — đã tạm dừng nhạc'); }, sleepMin*60000);
 }
-function setVol(v){ if(player&&player.setVolume) player.setVolume(+v); try{ localStorage.setItem('qlm_vol',v); }catch(e){} }
+function setVol(v){
+  v=+v;
+  if(player&&player.setVolume){
+    player.setVolume(v);
+    if(v>0 && player.isMuted && player.isMuted() && player.unMute) player.unMute();   // kéo to → tự bật tiếng
+    if(v===0 && player.mute) player.mute();
+  }
+  try{ localStorage.setItem('qlm_vol',v); }catch(e){}
+  updateVolIcon();
+}
+/* bấm vào loa = tắt/bật tiếng (như YouTube) */
+function toggleMute(){
+  if(!player||!player.isMuted) return;
+  const vEl=$('vol');
+  if(player.isMuted()){
+    player.unMute();
+    let v=(player.getVolume&&player.getVolume())||0;
+    if(!v){ v=+(localStorage.getItem('qlm_vol'))||100; player.setVolume(v); }
+    if(vEl) vEl.value=v;
+  } else {
+    player.mute();
+    if(vEl) vEl.value=0;
+  }
+  updateVolIcon();
+}
+function updateVolIcon(){
+  const b=$('volBtn'); if(!b) return;
+  const vEl=$('vol');
+  const muted=(player&&player.isMuted&&player.isMuted()) || (vEl && +vEl.value===0);
+  const spk='<path d="M11 5 6 9H2v6h4l5 4z"/>';
+  const on='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+spk+'<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>';
+  const off='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+spk+'<path d="M17 9l5 5M22 9l-5 5"/></svg>';
+  b.innerHTML=muted?off:on; b.title=muted?'Bật tiếng':'Tắt tiếng';
+}
 /* về đúng thời điểm phát trực tiếp (sau khi đã tua lại) */
 function goLive(){
   if(!player||!player.seekTo) return;
@@ -1531,17 +1634,18 @@ function moveQueue(i,d){
 /* ============ VIDEO LIÊN QUAN (cột phải, kiểu YouTube) ============ */
 let RELATED=[];
 const REL_TTL=24*60*60*1000;   // nhớ kết quả 24h để đỡ tốn quota
-/* dòng video kiểu danh sách (liên quan / panel) — có thời lượng + lượt xem */
-function relRowHTML(s,onclick){
+/* dòng video kiểu danh sách (liên quan / panel) — có thời lượng + lượt xem + nút ⋮ */
+function relRowHTML(s,onclick,src,i){
   const dur=s.dur?'<span class="rel-dur">'+fmtDur(s.dur)+'</span>':'';
   const views=(s.views!=null)?'<span class="vviews"> · '+fmtViews(s.views)+'</span>':'';
-  return '<div class="rel-item" onclick="'+onclick+'"><div class="rel-th"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'">'+dur+'</div><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+views+'</div></div></div>';
+  const more=src?'<button class="rel-more" title="Tuỳ chọn" onclick="openCtx(event,\''+src+'\','+i+')">⋮</button>':'';
+  return '<div class="rel-item" onclick="'+onclick+'"><div class="rel-th"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'">'+dur+'</div><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+views+'</div></div>'+more+'</div>';
 }
 function renderRelated(items){
   RELATED=items||[];
   const box=$('relatedList'); if(!box) return;
   if(!RELATED.length){ box.innerHTML='<div class="rel-empty">Chưa có video liên quan.</div>'; return; }
-  box.innerHTML=RELATED.map((s,i)=>relRowHTML(s,'playRelated('+i+')')).join('');
+  box.innerHTML=RELATED.map((s,i)=>relRowHTML(s,'playRelated('+i+')','rel',i)).join('');
 }
 async function loadRelatedList(s){
   const box=$('relatedList'); if(!box||!s) return;
@@ -1572,10 +1676,7 @@ function playRelated(i){
 /* ============ CHIA SẺ ============ */
 function shareSong(){
   const s=QUEUE[CUR]; if(!s){ toast('Chưa có bài nào đang phát'); return; }
-  const base=(location.origin && location.origin!=='null') ? (location.origin+location.pathname) : 'https://quanglam-music.netlify.app/';
-  const url=base+'?v='+s.id;   // link về CHÍNH web của bạn, mở ra phát ngay
-  if(navigator.share){ navigator.share({ title:s.title, text:s.title+' — nghe trên quanglam·music', url }).catch(()=>{}); }
-  else{ try{ navigator.clipboard.writeText(url); toast('Đã copy link — mở ra sẽ phát ngay trên web của bạn 📋'); }catch(e){ toast(url); } }
+  shareTrack(s);
 }
 /* Mở link chia sẻ (?v=ID) → tự phát bài đó ngay trên web mình, không về YouTube */
 async function playShared(id){
@@ -1821,6 +1922,13 @@ renderChips(); buildMarquee(); buildViz(); buildFx(); updateKeyState(); renderDr
 applyAccent(localStorage.getItem(LS.accent) || 'gold');
 setupSwipe(); setupSeekDrag();
 try{ const _sv=localStorage.getItem('qlm_vol'); if(_sv!=null){ const _v=$('vol'); if(_v) _v.value=_sv; } }catch(e){}
+updateVolIcon();
+/* đo chiều cao header → để ô tìm kiếm dính (sticky) ngay sát dưới header khi cuộn */
+function setHeaderH(){ const h=document.querySelector('header'); if(h) document.body.style.setProperty('--hh', h.offsetHeight+'px'); }
+setHeaderH();
+window.addEventListener('resize', setHeaderH);
+window.addEventListener('orientationchange', setHeaderH);
+window.addEventListener('load', setHeaderH);
 window.addEventListener('beforeunload', saveSession);
 const _params=new URLSearchParams(location.search);
 const _shareV=_params.get('v'), _shareQ=_params.get('q');
