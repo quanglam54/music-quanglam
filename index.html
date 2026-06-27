@@ -620,7 +620,7 @@
 <header>
   <div class="hbar">
     <button class="icon-btn burger" onclick="openDrawer()" title="Menu" aria-label="Menu">☰</button>
-    <div class="logo" onclick="nav('search')" title="Về trang chủ" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();nav('search')}">
+    <div class="logo" onclick="goHome()" title="Về trang chủ" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goHome()}">
       <span class="note"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M328 120v210a64 64 0 1 1-40-59V178l-128 36v152a64 64 0 1 1-40-59V196a24 24 0 0 1 17-23l168-47a24 24 0 0 1 31 23z"/></svg></span>
       <div><b>quanglam</b><span>·music</span><small>nghe gì cũng có</small></div>
     </div>
@@ -628,7 +628,7 @@
     <button class="icon-btn" id="installBtn" title="Cài ứng dụng" onclick="installApp()" style="display:none">⬇️</button>
     <button class="icon-btn" id="themeBtn" title="Sáng / Tối" onclick="toggleTheme()">🌙</button>
     <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()">⚙️</button>
-    <img class="avatar" src="quanglam.png" alt="quanglam" title="quanglam·music" onclick="nav('search')">
+    <img class="avatar" src="quanglam.png" alt="quanglam" title="quanglam·music" onclick="goHome()">
   </div>
 </header>
 
@@ -637,7 +637,7 @@
   <div class="drawer-bg" onclick="closeDrawer()"></div>
   <div class="drawer-panel">
     <div class="dr-logo"><span class="note"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M328 120v210a64 64 0 1 1-40-59V178l-128 36v152a64 64 0 1 1-40-59V196a24 24 0 0 1 17-23l168-47a24 24 0 0 1 31 23z"/></svg></span> <div>quanglam<span style="color:var(--accent)">·music</span></div></div>
-    <button class="dr-item" id="nav-search" onclick="nav('search')"><span class="ic">🏠</span> Trang chủ</button>
+    <button class="dr-item" id="nav-search" onclick="goHome()"><span class="ic">🏠</span> Trang chủ</button>
     <button class="dr-item" id="nav-hist" onclick="nav('hist')"><span class="ic">🕘</span> Video đã xem</button>
     <button class="dr-item" id="nav-fav" onclick="nav('fav')"><span class="ic">❤️</span> Yêu thích</button>
     <button class="dr-item" id="nav-later" onclick="nav('later')"><span class="ic">🕒</span> Xem sau</button>
@@ -1108,7 +1108,7 @@ function switchTabUI(){
     const el=$('nav-'+k); if(el) el.classList.toggle('on', tab===k || (tab==='plview'&&k==='playlists'));
   });
 }
-function nav(t){ tab=t; if(t!=='plview') curPl=null; switchTabUI(); closeDrawer(); window.scrollTo({top:0,behavior:'smooth'}); renderList(); }
+function nav(t){ tab=t; if(t!=='plview') curPl=null; switchTabUI(); closeDrawer(); closePanel(); window.scrollTo({top:0,behavior:'smooth'}); renderList(); }
 function switchTab(t){ nav(t); }
 function isFav(id){ return getFavs().some(f=>f.id===id); }
 
@@ -1280,6 +1280,27 @@ function seekBy(sec){
   if(t<0) t=0; if(dur>0 && t>dur) t=dur;
   player.seekTo(t,true);
 }
+/* dừng hẳn & bỏ video đang xem (dùng khi bấm Trang chủ) */
+function stopPlayback(){
+  try{ if(player){ if(player.stopVideo) player.stopVideo(); else if(player.pauseVideo) player.pauseVideo(); } }catch(e){}
+  QUEUE=[]; CUR=-1; wantPlay=false; userPaused=true;
+  try{ keepAlive(false); }catch(e){}
+  try{ localStorage.removeItem(LS.last); }catch(e){}
+  setPlayIcon(false);
+  document.body.classList.remove('vplaying','is-live','chat-on');
+  const mt=$('miniThumb'); if(mt) mt.src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50'><rect width='50' height='50' fill='%232b303c'/></svg>";
+  if($('miniTitle')) $('miniTitle').textContent='Chưa phát bài nào';
+  if($('miniChannel')) $('miniChannel').textContent='Tìm và bấm một bài để nghe';
+  if($('npTitle')) $('npTitle').textContent='Chưa phát bài nào';
+  if($('npChannel')) $('npChannel').textContent='—';
+  const bg=$('npBg'); if(bg) bg.classList.remove('show');
+  const lb=$('lyrics'); if(lb){ lb.classList.remove('show'); lb.innerHTML=''; }
+  const rel=$('relatedList'); if(rel) rel.innerHTML='';
+  const mf=$('miniFill'); if(mf) mf.style.width='0';
+  renderQueue();
+}
+/* về Trang chủ: bỏ luôn video đang xem rồi hiển thị trang chủ */
+function goHome(){ stopPlayback(); nav('search'); }
 function setPlayIcon(p){
   isPlaying=p;
   document.body.classList.toggle('vplaying', p);
