@@ -1544,23 +1544,24 @@ function setVol(v){
   v=+v;
   if(player&&player.setVolume){
     player.setVolume(v);
-    if(v>0 && player.isMuted && player.isMuted() && player.unMute) player.unMute();   // kéo to → tự bật tiếng
-    if(v===0 && player.mute) player.mute();
+    if(v>0){ if(player.isMuted && player.isMuted() && player.unMute) player.unMute(); }  // kéo to → tự bật tiếng
+    else if(player.mute){ player.mute(); }
   }
   try{ localStorage.setItem('qlm_vol',v); }catch(e){}
   updateVolIcon();
 }
-/* bấm vào loa = tắt/bật tiếng (như YouTube) */
+/* bấm vào loa = tắt/bật tiếng (như YouTube) — dựa vào giá trị thanh âm lượng (0 = đang tắt) */
 function toggleMute(){
-  if(!player||!player.isMuted) return;
+  if(!player) return;
   const vEl=$('vol');
-  if(player.isMuted()){
-    player.unMute();
-    let v=(player.getVolume&&player.getVolume())||0;
-    if(!v){ v=+(localStorage.getItem('qlm_vol'))||100; player.setVolume(v); }
+  const curMuted = vEl ? (+vEl.value===0) : false;
+  if(curMuted){                                   // đang tắt → bật lại
+    let v=+(localStorage.getItem('qlm_vol')); if(!v || isNaN(v)) v=100;
+    if(player.unMute) player.unMute();
+    if(player.setVolume) player.setVolume(v);
     if(vEl) vEl.value=v;
-  } else {
-    player.mute();
+  } else {                                        // đang bật → tắt tiếng
+    if(player.mute) player.mute();
     if(vEl) vEl.value=0;
   }
   updateVolIcon();
@@ -1568,7 +1569,7 @@ function toggleMute(){
 function updateVolIcon(){
   const b=$('volBtn'); if(!b) return;
   const vEl=$('vol');
-  const muted=(player&&player.isMuted&&player.isMuted()) || (vEl && +vEl.value===0);
+  const muted = !vEl || +vEl.value===0;           // chỉ dựa vào thanh âm lượng → không bị trễ trạng thái
   const spk='<path d="M11 5 6 9H2v6h4l5 4z"/>';
   const on='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+spk+'<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>';
   const off='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+spk+'<path d="M17 9l5 5M22 9l-5 5"/></svg>';
