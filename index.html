@@ -1605,14 +1605,38 @@ function makeSilentURL(){
   }catch(e){}
   return silentURL;
 }
+let _actx=null, _kaPrimed=false;
+/* Mở khoá audio NGAY trong lần chạm đầu tiên (Android chặn play() ngoài thao tác chạm). */
+function primeAudioKeepAlive(){
+  if(_kaPrimed) return; _kaPrimed=true;
+  /* 1) audio im lặng (lặp) — giữ trang ở trạng thái "đang phát" khi tắt màn */
+  try{
+    if(!silentAudio){ silentAudio=new Audio(makeSilentURL()); silentAudio.loop=true; silentAudio.setAttribute('playsinline',''); }
+    silentAudio.play().then(()=>{ if(!wantPlay){ try{silentAudio.pause();}catch(_){} } }).catch(()=>{});
+  }catch(e){}
+  /* 2) AudioContext phát 1 tần số rất thấp, cực nhỏ (20Hz – tai không nghe được)
+        để giữ "audio focus", giúp Android KHÔNG đóng băng trang khi màn tắt */
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(AC && !_actx){ _actx=new AC(); const o=_actx.createOscillator(), g=_actx.createGain();
+      g.gain.value=0.0009; o.frequency.value=20; o.connect(g); g.connect(_actx.destination); o.start(); }
+    if(_actx && _actx.state==='suspended') _actx.resume();
+  }catch(e){}
+}
 function keepAlive(on){
   try{
     if(on){
-      if(!silentAudio){ silentAudio=new Audio(makeSilentURL()); silentAudio.loop=true; silentAudio.setAttribute('playsinline',''); }
-      silentAudio.play().catch(()=>{});
-    } else if(silentAudio){ silentAudio.pause(); }
+      primeAudioKeepAlive();
+      if(silentAudio) silentAudio.play().catch(()=>{});
+      if(_actx && _actx.state==='suspended') _actx.resume();
+    } else {
+      if(silentAudio) silentAudio.pause();
+      if(_actx && _actx.state==='running') _actx.suspend();
+    }
   }catch(e){}
 }
+/* mở khoá ngay khi người dùng chạm/bấm lần đầu (lúc này play() được phép) */
+['pointerdown','touchend','click'].forEach(ev=>document.addEventListener(ev,primeAudioKeepAlive,{once:true,passive:true}));
 /* Khi ẩn tab / tắt màn: giữ phát nền. Khi quay lại: phát tiếp nếu đang muốn nghe mà bị dừng. */
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){
