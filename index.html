@@ -652,9 +652,9 @@
       <div class="mch" id="miniChannel">Tìm và bấm một bài để nghe</div>
     </div>
     <div class="mctrl" onclick="event.stopPropagation()">
-      <button onclick="prev()" title="Bài trước"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg></button>
+      <button onclick="seekBy(-10)" title="Lùi 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><text x="13" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
       <button class="play" id="miniPlay" onclick="togglePlay()" title="Phát/Dừng"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-      <button onclick="next()" title="Bài sau"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg></button>
+      <button onclick="seekBy(10)" title="Tua tới 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/><text x="11" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
     </div>
   </div>
 
@@ -683,8 +683,8 @@
         <div class="vf-prog" id="track"><div class="vf-fill" id="bigFill"></div><div class="vf-knob" id="knob"></div></div>
         <div class="vf-row">
           <button id="vfPlay" onclick="event.stopPropagation();togglePlay()" title="Phát/Dừng"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-          <button onclick="event.stopPropagation();prev()" title="Bài trước"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg></button>
-          <button onclick="event.stopPropagation();next()" title="Bài sau"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg></button>
+          <button onclick="event.stopPropagation();seekBy(-10)" title="Lùi 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><text x="13" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
+          <button onclick="event.stopPropagation();seekBy(10)" title="Tua tới 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/><text x="11" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
           <span class="vf-time"><span id="tCur">0:00</span> / <span id="tDur">0:00</span></span>
           <span class="sp"></span>
           <button id="liveBtn" class="vf-live" onclick="event.stopPropagation();goLive()" title="Về phát trực tiếp" style="display:none">TRỰC TIẾP</button>
@@ -729,9 +729,9 @@
     <div class="lyrics-box" id="lyrics" aria-live="off"></div>
     <div class="bigctrl">
       <button class="sm" id="shufBtn" onclick="toggleShuffle()" title="Trộn bài"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
-      <button class="nav" onclick="prev()" title="Bài trước"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg></button>
+      <button class="nav" onclick="seekBy(-10)" title="Lùi 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><text x="13" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
       <button class="bigplay" id="bigPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-      <button class="nav" onclick="next()" title="Bài sau"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg></button>
+      <button class="nav" onclick="seekBy(10)" title="Tua tới 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/><text x="11" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
       <button class="sm" id="repBtn" onclick="toggleRepeat()" title="Lặp lại"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
     </div>
     </div><!-- /np-main -->
@@ -1178,6 +1178,14 @@ function togglePlay(){
   const st=player.getPlayerState();
   if(st===YT.PlayerState.PLAYING){ userPaused=true; wantPlay=false; player.pauseVideo(); }
   else{ userPaused=false; wantPlay=true; player.playVideo(); }
+}
+/* tua nhanh ±giây (thay cho nút qua/lùi bài) */
+function seekBy(sec){
+  if(!player||!player.seekTo||!player.getCurrentTime){ return; }
+  const dur=(player.getDuration&&player.getDuration())||0;
+  let t=(player.getCurrentTime()||0)+sec;
+  if(t<0) t=0; if(dur>0 && t>dur) t=dur;
+  player.seekTo(t,true);
 }
 function setPlayIcon(p){
   isPlaying=p;
