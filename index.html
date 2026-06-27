@@ -197,6 +197,12 @@
   .badge-eq i:nth-child(2){animation-delay:.3s}
   .badge-eq i:nth-child(3){animation-delay:.6s}
   @keyframes eq{0%,100%{height:5px}50%{height:13px}}
+  /* thời lượng video + lượt xem (kiểu YouTube) */
+  .vdur{position:absolute;right:8px;bottom:8px;z-index:3;background:rgba(0,0,0,.82);color:#fff;
+    font-size:.74rem;font-weight:600;line-height:1.3;padding:2px 6px;border-radius:5px;letter-spacing:.02em;pointer-events:none}
+  .vdur.live{background:#e0322b;display:flex;align-items:center;gap:4px}
+  body.light .vdur{background:rgba(20,18,12,.82)}
+  .vviews{color:var(--muted)}
   /* skeleton loading */
   .sk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:24px 18px;padding:16px 0 30px}
   @media(max-width:920px){.sk-grid{grid-template-columns:repeat(2,1fr)}}
@@ -794,6 +800,7 @@ let shuffle = false, repeat = 'off'; // off | all | one
 let player = null, ytReady = false, pendingId = null, pendingCue = null;
 let LYRICS=[], lyricsActive=-1, lyricsToken=0, lastSwipeAt=0, _saveTick=0;
 let isPlaying = false, seeking = false;
+let userPaused = false, wantPlay = false, silentURL = null, silentAudio = null; // phát nền khi tắt màn
 
 const $ = id => document.getElementById(id);
 function getKey(){ return (OWNER_KEY && OWNER_KEY.trim()) || localStorage.getItem(LS.key) || ''; }
@@ -815,6 +822,31 @@ function toggleTheme(){ const t=document.body.classList.contains('light')?'dark'
 function decode(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
 function fmtTime(s){ s=Math.max(0,Math.floor(s||0)); const m=Math.floor(s/60); const ss=String(s%60).padStart(2,'0'); return m+':'+ss; }
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
+/* ISO 8601 (PT3M20S) -> số giây */
+function parseISODur(iso){ const m=(iso||'').match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); if(!m) return 0; return (+m[1]||0)*3600+(+m[2]||0)*60+(+m[3]||0); }
+/* giây -> "m:ss" hoặc "h:mm:ss" (hiển thị trên thumbnail) */
+function fmtDur(sec){ sec=Math.floor(sec||0); const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60; const ss=String(s).padStart(2,'0'); return h>0 ? h+':'+String(m).padStart(2,'0')+':'+ss : m+':'+ss; }
+/* số -> "1,2 N / 3,4 Tr / 1,1 T lượt xem" (kiểu YouTube tiếng Việt) */
+function fmtViews(n){ n=+n||0;
+  if(n<1000) return n+' lượt xem';
+  if(n<1e6) return (n/1e3).toFixed(n<1e4?1:0).replace(/\.0$/,'').replace('.',',')+' N lượt xem';
+  if(n<1e9) return (n/1e6).toFixed(n<1e7?1:0).replace(/\.0$/,'').replace('.',',')+' Tr lượt xem';
+  return (n/1e9).toFixed(1).replace(/\.0$/,'').replace('.',',')+' T lượt xem';
+}
+/* lấy thời lượng + lượt xem cho danh sách video (1 quota/lần, gộp tối đa 50 video) */
+async function enrichDetails(items,key){
+  if(!key) return;
+  const ids=(items||[]).filter(x=>x&&x.id&&x.dur==null&&!x.live).map(x=>x.id);
+  if(!ids.length) return;
+  try{
+    const url='https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id='+ids.slice(0,50).join(',')+'&key='+encodeURIComponent(key);
+    const r=await fetch(url); const d=await r.json();
+    if(!d.items) return;
+    const map={};
+    d.items.forEach(it=>{ map[it.id]={ dur:parseISODur(it.contentDetails&&it.contentDetails.duration), views:+((it.statistics&&it.statistics.viewCount))||0 }; });
+    items.forEach(x=>{ if(x&&map[x.id]){ x.dur=map[x.id].dur; x.views=map[x.id].views; } });
+  }catch(e){}
+}
 
 /* ============ API KEY ============ */
 function openKey(){ $('keyInput').value=getKey(); $('keyModal').classList.add('open'); }
@@ -869,12 +901,14 @@ function doSearch(e){ e.preventDefault(); const q=$('q').value.trim(); if(q) run
 function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 /* lấy bảng thịnh hành của 1 khu vực (rẻ quota: 1 điểm/lần) */
 async function fetchTrending(region,key){
-  const url='https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&regionCode='+region+'&maxResults=50&key='+encodeURIComponent(key);
+  const url='https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode='+region+'&maxResults=50&key='+encodeURIComponent(key);
   const r=await fetch(url); const data=await r.json();
   if(data.error||!data.items) return null;
   return data.items.filter(it=>it.id).map(it=>({
     id:it.id, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
-    thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url
+    thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url,
+    dur:parseISODur(it.contentDetails&&it.contentDetails.duration),
+    views:+((it.statistics&&it.statistics.viewCount))||0
   }));
 }
 /* mỗi lần vào / reload chọn ngẫu nhiên 1 bảng (VN nhiều hơn) rồi trộn → luôn mới mẻ */
@@ -955,6 +989,7 @@ async function runSearch(q){
     }));
     searchHead='<span class="dot">🔎</span> Kết quả cho "'+escapeAttr(q)+'"';
     renderList();
+    enrichDetails(lastResults,key).then(()=>{ if(tab==='search') renderList(); }); // bổ sung thời lượng + lượt xem
   }catch(err){
     $('list').innerHTML='<div class="err">⚠️ Không kết nối được. Kiểm tra mạng rồi thử lại.</div>';
   }
@@ -992,15 +1027,18 @@ function renderDrPlaylists(){
 function hint(ic,a,b){ return '<div class="hint"><div class="big">'+ic+'</div><p>'+a+'<br>'+b+'</p></div>'; }
 function card(s,i){
   const curId=(QUEUE[CUR]||{}).id;
+  const durBadge = s.live ? '<span class="vdur live">● LIVE</span>' : (s.dur ? '<span class="vdur">'+fmtDur(s.dur)+'</span>' : '');
+  const viewsTxt = (s.views!=null) ? '<span class="vviews"> · '+fmtViews(s.views)+'</span>' : '';
   return `<div class="vcard ${s.id===curId?'playing':''}" data-id="${s.id}" onclick="playFromList('${tab}',${i})">
     <div class="vthumb">
       <img src="${s.thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
       <div class="vplay"><span>▶</span></div>
+      ${durBadge}
       <span class="badge-eq"><i></i><i></i><i></i></span>
       <button class="vfav ${isFav(s.id)?'on':''}" onclick="event.stopPropagation();toggleFav('${tab}',${i},this)" title="Yêu thích">${isFav(s.id)?'❤':'♡'}</button>
     </div>
     <div class="vmeta">
-      <div class="vinfo"><div class="vti">${escapeAttr(s.title)}</div><div class="vch">${escapeAttr(s.channel)}</div></div>
+      <div class="vinfo"><div class="vti">${escapeAttr(s.title)}</div><div class="vch">${escapeAttr(s.channel)}${viewsTxt}</div></div>
       <button class="vadd" onclick="event.stopPropagation();openAddMenu('${tab}',${i})" title="Thêm vào...">＋</button>
     </div>
   </div>`;
@@ -1096,6 +1134,7 @@ function paintNowPlaying(s){
 }
 function playCurrent(){
   const s=QUEUE[CUR]; if(!s) return;
+  userPaused=false; wantPlay=true;
   paintNowPlaying(s);
   curIsLive=!!s.live; document.body.classList.toggle('is-live',!!s.live);
   { const lb=$('liveBtn'); if(lb){ lb.style.display=s.live?'inline-flex':'none'; lb.classList.remove('behind'); } }
@@ -1124,8 +1163,8 @@ function prev(){
 function togglePlay(){
   if(!player||!ytReady){ return; }
   const st=player.getPlayerState();
-  if(st===YT.PlayerState.PLAYING){ player.pauseVideo(); }
-  else{ player.playVideo(); }
+  if(st===YT.PlayerState.PLAYING){ userPaused=true; wantPlay=false; player.pauseVideo(); }
+  else{ userPaused=false; wantPlay=true; player.playVideo(); }
 }
 function setPlayIcon(p){
   isPlaying=p;
@@ -1339,8 +1378,16 @@ window.onYouTubeIframeAPIReady=function(){
         if(pendingCue){ player.cueVideoById({videoId:pendingCue.id,startSeconds:pendingCue.t}); pendingCue=null; }
         else if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
-        if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); }
-        else if(e.data===YT.PlayerState.PAUSED){ setPlayIcon(false); ytCover(true); saveSession(); }
+        if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); userPaused=false; wantPlay=true; keepAlive(true); }
+        else if(e.data===YT.PlayerState.PAUSED){
+          setPlayIcon(false); ytCover(true); saveSession();
+          /* Nếu KHÔNG phải người dùng bấm dừng → đây là kiểu trình duyệt tự dừng khi tắt màn / đổi tab.
+             Giữ phát nền + phát lại ngay để nhạc không bị ngắt. */
+          if(!userPaused){
+            keepAlive(true);
+            setTimeout(()=>{ if(player && !userPaused && player.getPlayerState()===YT.PlayerState.PAUSED){ try{player.playVideo();}catch(_){} } }, 350);
+          } else { keepAlive(false); }
+        }
         else if(e.data===YT.PlayerState.ENDED){ ytCover(true); next(); }
         else if(e.data===YT.PlayerState.CUED || e.data===-1){ ytCover(true); }
       },
@@ -1374,7 +1421,7 @@ function cycleSleep(){
   clearTimeout(sleepTO); const lbl=$('sleepLbl'), btn=$('sleepBtn');
   if(sleepMin===0){ lbl.textContent='Hẹn giờ'; btn.classList.remove('on'); toast('Đã tắt hẹn giờ'); return; }
   lbl.textContent=sleepMin+' phút'; btn.classList.add('on'); toast('Hẹn tắt nhạc sau '+sleepMin+' phút');
-  sleepTO=setTimeout(()=>{ if(player&&player.pauseVideo) player.pauseVideo(); sleepMin=0; lbl.textContent='Hẹn giờ'; btn.classList.remove('on'); toast('⏰ Hết giờ — đã tạm dừng nhạc'); }, sleepMin*60000);
+  sleepTO=setTimeout(()=>{ userPaused=true; wantPlay=false; keepAlive(false); if(player&&player.pauseVideo) player.pauseVideo(); sleepMin=0; lbl.textContent='Hẹn giờ'; btn.classList.remove('on'); toast('⏰ Hết giờ — đã tạm dừng nhạc'); }, sleepMin*60000);
 }
 function setVol(v){ if(player&&player.setVolume) player.setVolume(+v); }
 /* về đúng thời điểm phát trực tiếp (sau khi đã tua lại) */
@@ -1535,13 +1582,45 @@ function setupMediaSession(){
   if(!('mediaSession' in navigator)) return;
   const ms=navigator.mediaSession;
   try{
-    ms.setActionHandler('play',()=>{ player&&player.playVideo(); });
-    ms.setActionHandler('pause',()=>{ player&&player.pauseVideo(); });
+    ms.setActionHandler('play',()=>{ userPaused=false; wantPlay=true; keepAlive(true); player&&player.playVideo(); });
+    ms.setActionHandler('pause',()=>{ userPaused=true; wantPlay=false; keepAlive(false); player&&player.pauseVideo(); });
     ms.setActionHandler('previoustrack',()=>prev());
     ms.setActionHandler('nexttrack',()=>next());
     ms.setActionHandler('seekto',e=>{ if(player&&e.seekTime!=null) player.seekTo(e.seekTime,true); });
   }catch(e){}
 }
+/* ===== GIỮ PHÁT NỀN khi tắt màn hình / chuyển ứng dụng (điện thoại) =====
+   Trình duyệt mobile chỉ giữ trang chạy nền khi trang đang "phát âm thanh".
+   Ta phát một đoạn audio IM LẶNG lặp vô hạn để giữ quyền phát nền, nhờ đó
+   trình phát YouTube + điều khiển trên màn hình khóa tiếp tục hoạt động. */
+function makeSilentURL(){
+  if(silentURL) return silentURL;
+  try{
+    const sr=8000, sec=1, n=sr*sec, buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
+    const w=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+    w(0,'RIFF'); v.setUint32(4,36+n*2,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true);
+    v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,sr,true); v.setUint32(28,sr*2,true);
+    v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,'data'); v.setUint32(40,n*2,true);
+    silentURL=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));   // dữ liệu mặc định = 0 → im lặng
+  }catch(e){}
+  return silentURL;
+}
+function keepAlive(on){
+  try{
+    if(on){
+      if(!silentAudio){ silentAudio=new Audio(makeSilentURL()); silentAudio.loop=true; silentAudio.setAttribute('playsinline',''); }
+      silentAudio.play().catch(()=>{});
+    } else if(silentAudio){ silentAudio.pause(); }
+  }catch(e){}
+}
+/* Khi ẩn tab / tắt màn: giữ phát nền. Khi quay lại: phát tiếp nếu đang muốn nghe mà bị dừng. */
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    if(wantPlay && !userPaused) keepAlive(true);
+  } else if(wantPlay && !userPaused && player && player.getPlayerState && player.getPlayerState()!==YT.PlayerState.PLAYING){
+    try{ player.playVideo(); }catch(e){}
+  }
+});
 
 /* ============ PWA (cài như app) ============ */
 let deferredInstall=null;
