@@ -433,7 +433,8 @@
   @media(max-width:560px){ .vf-vol{display:none} .vf-row button{width:30px;height:30px}
     .vf-seek{display:none}                             /* ẩn nút tua ±10s nổi (đã có thanh kéo + cụm nút lớn bên dưới) */
     .vf-volbtn,.vf-cc{display:grid;width:30px;height:30px}  /* hiện loa + CC trên điện thoại */
-    .vf-row{gap:2px}                                   /* khít hơn để đủ chỗ: CC + loa + bánh răng + toàn màn hình */
+    /* QUAN TRỌNG: cho hàng nút tự xuống dòng khi chật → không bao giờ bị cắt mất nút */
+    .vf-row{gap:3px;row-gap:5px;flex-wrap:wrap;justify-content:flex-end}
     .vf-time{margin:0 4px;font-size:.72rem}
     .vf-row button svg,.vf-cc svg{width:18px;height:18px}
     /* điện thoại: tách thanh tua xa hàng nút + làm dày hơn cho dễ tua */
