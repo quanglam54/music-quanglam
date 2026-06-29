@@ -1320,11 +1320,22 @@ function toggleFav(t,i,btn){
   if(tab==='fav') renderList(); else if(btn){ const on=isFav(s.id); btn.classList.toggle('on',on); btn.textContent=on?'❤':'♡'; }
 }
 
+/* lấy ảnh bìa NÉT cho lớp che video (maxres 1280×720, không có thì hqdefault 480×360) */
+function hiResThumb(id, cb){
+  if(!id){ return; }
+  const max='https://i.ytimg.com/vi/'+id+'/maxresdefault.jpg';
+  const hq ='https://i.ytimg.com/vi/'+id+'/hqdefault.jpg';
+  const im=new Image();
+  im.onload =()=>cb(im.naturalWidth>320 ? max : hq);   // maxres tồn tại & đủ lớn thì dùng, không thì hq
+  im.onerror=()=>cb(hq);
+  im.src=max;
+}
 function paintNowPlaying(s){
   $('miniTitle').textContent=s.title; $('miniChannel').textContent=s.channel;
   $('npTitle').textContent=s.title; $('npChannel').textContent=s.channel;
   $('miniThumb').src=s.thumb; $('miniThumb').style.visibility='visible';
-  const g=$('ytGuard'); if(g){ g.style.backgroundImage='url("'+s.thumb+'")'; g.classList.add('show'); }
+  const g=$('ytGuard'); if(g){ g.style.backgroundImage='url("'+s.thumb+'")'; g.classList.add('show');  // hiện ngay ảnh có sẵn...
+    hiResThumb(s.id, url=>{ if((QUEUE[CUR]||{}).id===s.id) g.style.backgroundImage='url("'+url+'")'; }); } // ...rồi nâng lên ảnh nét
   const bg=$('npBg'); if(bg){ bg.style.backgroundImage='url("'+s.thumb+'")'; bg.classList.add('show'); }
   updateMediaSession(s); renderQueue(); renderList();
 }
@@ -1502,15 +1513,22 @@ function setupHoverPreview(){
     if(card===hoverCard) clearHover();
   });
 }
+function lockLandscape(){ try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); }catch(e){} }
+function unlockOrientation(){ try{ if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }catch(e){} }
 function goFullscreen(){
   const v=$('videoWrap');
   const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
-  if(!fsEl){ (v.requestFullscreen||v.webkitRequestFullscreen||v.msRequestFullscreen||function(){}).call(v); }
-  else{ (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+  if(!fsEl){
+    const req=v.requestFullscreen||v.webkitRequestFullscreen||v.msRequestFullscreen;
+    if(req){ const p=req.call(v);                       // vào toàn màn hình rồi tự xoay ngang (điện thoại)
+      if(p && p.then) p.then(lockLandscape).catch(lockLandscape); else setTimeout(lockLandscape,120); }
+  }
+  else{ unlockOrientation(); (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
 }
 /* đổi icon nút: bung ra (vào) ↔ thu lại (thoát) toàn màn hình */
 function updateFsIcon(){
   const fs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(!fs) unlockOrientation();                          // thoát toàn màn hình → bỏ khóa ngang
   const b=$('vfFull'); if(!b) return;
   const enter='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
   const exit='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M16 21v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>';
