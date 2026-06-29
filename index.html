@@ -2075,6 +2075,7 @@ import {
   sendPasswordResetEmail, signOut, updateProfile,
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDA2v107on_JzsDVsT1cO1huMTcvq48Ync",
@@ -2091,6 +2092,7 @@ const auth = getAuth(app);
 auth.languageCode = 'vi';
 try{ await setPersistence(auth, browserLocalPersistence); }catch(e){}
 const provider = new GoogleAuthProvider();
+const db = getFirestore(app);
 
 const $id = id => document.getElementById(id);
 let authMode = 'login';      // 'login' | 'signup'
@@ -2176,11 +2178,93 @@ window.qlmSignOut = async function(){
   if(window.toast) toast('Đã đăng xuất');
 };
 
+/* ============ ĐỒNG BỘ DỮ LIỆU LÊN CLOUD (Firestore) ============
+   Đồng bộ: Yêu thích (favs), Xem sau (later), Playlist, Lịch sử (hist).
+   - Đăng nhập: tải dữ liệu cloud về, GỘP với dữ liệu đang có trên máy, lưu lại cả 2 nơi.
+   - Mỗi lần thêm/bớt: tự đẩy lên cloud (gộp nhóm, chờ ~1 giây để đỡ tốn lượt ghi).
+   - Đăng xuất: xoá dữ liệu cá nhân khỏi máy (vẫn an toàn trên cloud) để không lẫn tài khoản. */
+const LS_FAVS='qlm_favs', LS_LATER='qlm_later', LS_HIST='qlm_hist', LS_PLS='qlm_playlists';
+let currentUid=null;
+
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+/* gộp 2 danh sách theo id (giữ thứ tự: máy trước, cloud bổ sung sau); cap = giới hạn số bài */
+function mergeList(local, cloud, cap){
+  const out=[], seen=new Set();
+  for(const x of [...(local||[]), ...(cloud||[])]){
+    if(!x || !x.id || seen.has(x.id)) continue;
+    seen.add(x.id); out.push(x);
+  }
+  return cap ? out.slice(0,cap) : out;
+}
+/* gộp playlist theo id; playlist trùng id thì gộp danh sách bài trong đó */
+function mergePlaylists(local, cloud){
+  const map=new Map();
+  for(const p of (local||[])) if(p&&p.id) map.set(p.id, {id:p.id, name:p.name, tracks:(p.tracks||[]).slice()});
+  for(const p of (cloud||[])){
+    if(!p||!p.id) continue;
+    if(!map.has(p.id)) map.set(p.id, {id:p.id, name:p.name, tracks:(p.tracks||[]).slice()});
+    else{ const ex=map.get(p.id); ex.tracks = mergeList(ex.tracks, p.tracks); }
+  }
+  return [...map.values()];
+}
+
+function refreshUI(){
+  try{ if(window.renderDrPlaylists) renderDrPlaylists(); }catch(e){}
+  try{ if(window.renderList) renderList(); }catch(e){}
+}
+
+/* tải cloud -> gộp với máy -> lưu cả 2 nơi -> vẽ lại giao diện */
+async function pullAndMerge(uid){
+  let cloud={};
+  try{ const snap=await getDoc(doc(db,'users',uid)); if(snap.exists()) cloud=snap.data()||{}; }
+  catch(e){ console.warn('[sync] tải cloud lỗi:', e); }
+  const mFavs = mergeList(lsGet(LS_FAVS),  cloud.favs);
+  const mLater= mergeList(lsGet(LS_LATER), cloud.later);
+  const mHist = mergeList(lsGet(LS_HIST),  cloud.hist, 60);
+  const mPls  = mergePlaylists(lsGet(LS_PLS), cloud.playlists);
+  lsSet(LS_FAVS,mFavs); lsSet(LS_LATER,mLater); lsSet(LS_HIST,mHist); lsSet(LS_PLS,mPls);
+  refreshUI();
+  try{ await setDoc(doc(db,'users',uid), {favs:mFavs, later:mLater, hist:mHist, playlists:mPls, updatedAt:Date.now()}, {merge:true}); }
+  catch(e){ console.warn('[sync] đẩy cloud lỗi:', e); }
+}
+
+/* đẩy lên cloud — gộp nhiều thay đổi, chờ ~1s ghi 1 lần */
+let pushTimer=null, pending={};
+function queuePush(field, value){
+  if(!currentUid) return;
+  pending[field]=value;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async ()=>{
+    if(!currentUid) return;
+    const data=pending; pending={}; data.updatedAt=Date.now();
+    try{ await setDoc(doc(db,'users',currentUid), data, {merge:true}); }
+    catch(e){ console.warn('[sync] ghi cloud lỗi:', e); }
+  }, 1000);
+}
+
+/* "móc" vào các hàm lưu sẵn có để tự đẩy lên cloud */
+function wrapSaver(name, field, getValue){
+  const orig=window[name];
+  if(typeof orig!=='function'){ console.warn('[sync] không thấy hàm', name); return; }
+  window[name]=function(...args){
+    const r=orig.apply(this,args);
+    try{ if(currentUid) queuePush(field, getValue ? getValue(args) : args[0]); }catch(e){}
+    return r;
+  };
+}
+wrapSaver('saveFavs',      'favs',      args=>args[0]);
+wrapSaver('saveLater',     'later',     args=>args[0]);
+wrapSaver('savePlaylists', 'playlists', args=>args[0]);
+wrapSaver('pushHistory',   'hist',      ()=>lsGet(LS_HIST).slice(0,60));
+
 /* ---- cập nhật giao diện theo trạng thái đăng nhập ---- */
 onAuthStateChanged(auth, user => {
   const av=$id('userAvatar');
   window.QLM_USER = user || null;
   if(user){
+    currentUid = user.uid;
     const name  = user.displayName || (user.email ? user.email.split('@')[0] : 'Bạn');
     const letter= (name[0]||'?').toUpperCase();
     const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#c2a06b"/><text x="40" y="54" font-size="42" text-anchor="middle" fill="#191919" font-family="sans-serif" font-weight="700">'+letter+'</text></svg>');
@@ -2190,7 +2274,13 @@ onAuthStateChanged(auth, user => {
     const an=$id('acctName');  if(an) an.textContent=name;
     const ae=$id('acctEmail'); if(ae) ae.textContent=user.email||'';
     if(window.toast && window._authReady) toast('Xin chào, '+name+' 👋');
+    pullAndMerge(user.uid);                       // kéo + gộp dữ liệu cloud
   }else{
+    if(currentUid){                               // vừa đăng xuất -> dọn dữ liệu cá nhân khỏi máy
+      [LS_FAVS,LS_LATER,LS_HIST,LS_PLS].forEach(k=>localStorage.removeItem(k));
+      refreshUI();
+    }
+    currentUid=null;
     if(av){ av.src=DEFAULT_AVATAR; av.onerror=null; av.title='Đăng nhập'; }
   }
   window._authReady = true;
