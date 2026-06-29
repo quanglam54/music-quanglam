@@ -776,6 +776,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         <span id="sleepLbl">Hẹn giờ</span>
       </button>
+      <button onclick="addCurrentToPlaylist()" title="Lưu bài đang phát vào playlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12M3 12h8M3 18h7M16 13v6M13 16h6"/></svg>
+        Lưu playlist
+      </button>
       <button onclick="shareSong()" title="Chia sẻ">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
         Chia sẻ
@@ -887,6 +891,7 @@
 <!-- POPUP MENU cho video liên quan (Xem sau / Tải xuống / Chia sẻ) -->
 <div class="ctx-menu" id="ctxMenu">
   <button class="ctx-item" id="ctxLater" onclick="ctxAction('later')"><span class="ic">🕒</span> Lưu vào Xem sau</button>
+  <button class="ctx-item" onclick="ctxAction('playlist')"><span class="ic">➕</span> Lưu vào playlist</button>
   <button class="ctx-item" onclick="ctxAction('share')"><span class="ic">🔗</span> Chia sẻ</button>
 </div>
 
@@ -956,6 +961,7 @@ function closeCtx(){ const m=$('ctxMenu'); if(m) m.classList.remove('show'); }
 function ctxAction(act){
   const s=ctxTrack; closeCtx(); if(!s) return;
   if(act==='later') toggleLater(s);
+  else if(act==='playlist') openAddMenuTrack(s);
   else if(act==='share') shareTrack(s);
 }
 document.addEventListener('click',e=>{ if(!e.target.closest('#ctxMenu')) closeCtx(); });
@@ -1258,7 +1264,11 @@ function srcArr(t){ if(t==='fav')return getFavs(); if(t==='hist')return getHist(
 
 /* ============ SHEET: LƯU VÀO PLAYLIST ============ */
 let pendingTrack=null;
-function openAddMenu(t,i){ const s=srcArr(t)[i]; if(!s) return; pendingTrack=s; $('sheetSong').textContent=s.title; $('newPlName').value=''; renderSheetPlaylists(); $('plSheet').classList.add('open'); }
+function openAddMenu(t,i){ openAddMenuTrack(srcArr(t)[i]); }
+/* mở bảng "Lưu vào playlist" cho 1 bài bất kỳ (thẻ video, video liên quan, hoặc bài đang phát) */
+function openAddMenuTrack(s){ if(!s) return; pendingTrack=s; $('sheetSong').textContent=s.title; $('newPlName').value=''; renderSheetPlaylists(); $('plSheet').classList.add('open'); }
+/* lưu BÀI ĐANG PHÁT vào playlist */
+function addCurrentToPlaylist(){ const s=QUEUE[CUR]; if(!s){ toast('Chưa có bài nào đang phát'); return; } openAddMenuTrack(s); }
 function closeSheet(){ $('plSheet').classList.remove('open'); }
 function renderSheetPlaylists(){
   const box=$('sheetPlaylists'), pls=getPlaylists(), pid=pendingTrack&&pendingTrack.id;
