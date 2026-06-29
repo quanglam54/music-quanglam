@@ -611,6 +611,23 @@
   .adot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.16s;outline:none}
   .adot:hover{transform:scale(1.12)}
   .adot.on{border-color:#fff;transform:scale(1.12)}
+
+  /* ===== ĐĂNG NHẬP (Google + Email) ===== */
+  .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:#fff;color:#1f1f1f;
+    font-weight:600;padding:12px;border-radius:12px;transition:.18s;border:1px solid #dadce0}
+  .gbtn:hover{background:#f3f3f3}
+  .gbtn svg{width:20px;height:20px;flex:none}
+  body.light .gbtn{border-color:var(--line)}
+  .auth-or{display:flex;align-items:center;text-align:center;color:var(--muted);font-size:.8rem;margin:16px 0 6px}
+  .auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--line)}
+  .auth-or span{padding:0 12px}
+  .auth-foot{display:flex;justify-content:space-between;margin-top:14px;font-size:.84rem;flex-wrap:wrap;gap:8px}
+  .auth-foot a{color:var(--accent);text-decoration:none;cursor:pointer}
+  .auth-foot a:hover{text-decoration:underline}
+  .auth-msg{margin-top:12px;font-size:.85rem;min-height:1.1em;line-height:1.4}
+  .auth-msg.err{color:var(--danger)}
+  .auth-msg.ok{color:#7bbf7b}
+  .acct-photo{width:84px;height:84px;border-radius:50%;object-fit:cover;margin:4px auto 12px;border:3px solid var(--accent)}
 </style>
 </head>
 <body>
@@ -628,6 +645,8 @@
     <button class="icon-btn" id="installBtn" title="Cài ứng dụng" onclick="installApp()" style="display:none">⬇️</button>
     <button class="icon-btn" id="themeBtn" title="Sáng / Tối" onclick="toggleTheme()">🌙</button>
     <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()">⚙️</button>
+    <button class="icon-btn" id="loginBtn" title="Đăng nhập" aria-label="Đăng nhập" onclick="openAuth()">👤</button>
+    <img class="avatar" id="userAvatar" alt="Tài khoản" title="Tài khoản" style="display:none" onclick="openAcct()">
     <img class="avatar" src="quanglam.png" alt="quanglam" title="quanglam·music" onclick="goHome()">
   </div>
 </header>
@@ -794,6 +813,48 @@
     <input id="keyInput" type="text" placeholder="AIzaSy..." autocomplete="off">
     <button class="save" onclick="saveKey()">Lưu & bắt đầu nghe</button>
     <div class="note-warn">💡 Mỗi key miễn phí cho khoảng <b>100 lượt tìm/ngày</b>. Đủ dùng cá nhân. Key lưu trên máy bạn, không gửi đi đâu khác ngoài Google.</div>
+  </div>
+</div>
+
+<!-- AUTH MODAL (đăng nhập / đăng ký) -->
+<div class="modal" id="authModal">
+  <div class="modal-bg" onclick="closeAuth()"></div>
+  <div class="modal-box">
+    <button class="close" onclick="closeAuth()">✕</button>
+    <h3 id="authTitle">👤 Đăng nhập</h3>
+    <p class="sub" id="authSub">Đăng nhập để lưu nhạc yêu thích của bạn.</p>
+
+    <button class="gbtn" id="googleBtn" onclick="qlmGoogle()">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Tiếp tục với Google
+    </button>
+
+    <div class="auth-or"><span>hoặc dùng email</span></div>
+
+    <label>Email</label>
+    <input id="authEmail" type="email" placeholder="ban@email.com" autocomplete="email">
+    <label style="margin-top:12px">Mật khẩu</label>
+    <input id="authPass" type="password" placeholder="••••••" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')qlmEmailAuth()">
+    <button class="save" id="authSubmit" onclick="qlmEmailAuth()">Đăng nhập</button>
+
+    <div class="auth-foot">
+      <a onclick="qlmReset()">Quên mật khẩu?</a>
+      <a id="authSwap" onclick="swapAuthMode()">Chưa có tài khoản? Đăng ký</a>
+    </div>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL (đã đăng nhập) -->
+<div class="modal" id="acctModal">
+  <div class="modal-bg" onclick="closeAcct()"></div>
+  <div class="modal-box" style="text-align:center;max-width:360px">
+    <button class="close" onclick="closeAcct()">✕</button>
+    <img id="acctPhoto" class="acct-photo" alt="">
+    <h3 id="acctName" style="margin-bottom:2px">—</h3>
+    <p class="sub" id="acctEmail" style="margin-bottom:18px">—</p>
+    <button class="save" onclick="qlmSignOut()" style="background:var(--danger);color:#fff">Đăng xuất</button>
   </div>
 </div>
 
@@ -2004,6 +2065,133 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.shiftKey&&['i','j','c'].includes((e.key||'').toLowerCase())){ e.preventDefault(); }
   if((e.ctrlKey||e.metaKey)&&['u','s'].includes((e.key||'').toLowerCase())){ e.preventDefault(); }
 },true);
+</script>
+
+<!-- ============ FIREBASE — ĐĂNG NHẬP (Google + Email/Mật khẩu) ============ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail, signOut, updateProfile,
+  setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDA2v107on_JzsDVsT1cO1huMTcvq48Ync",
+  authDomain: "quanglam-music.firebaseapp.com",
+  projectId: "quanglam-music",
+  storageBucket: "quanglam-music.firebasestorage.app",
+  messagingSenderId: "85620592585",
+  appId: "1:85620592585:web:bb74f8a22482bbed10a218",
+  measurementId: "G-SGHNPCH8FP"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+auth.languageCode = 'vi';
+try{ await setPersistence(auth, browserLocalPersistence); }catch(e){}
+const provider = new GoogleAuthProvider();
+
+const $id = id => document.getElementById(id);
+let authMode = 'login';      // 'login' | 'signup'
+
+function msg(text, kind){ const m=$id('authMsg'); if(!m) return; m.textContent=text||''; m.className='auth-msg'+(kind?(' '+kind):''); }
+
+/* dịch mã lỗi Firebase sang tiếng Việt dễ hiểu */
+function viErr(code){
+  const map={
+    'auth/invalid-email':'Email không hợp lệ.',
+    'auth/missing-password':'Vui lòng nhập mật khẩu.',
+    'auth/weak-password':'Mật khẩu quá ngắn (cần tối thiểu 6 ký tự).',
+    'auth/email-already-in-use':'Email này đã có tài khoản. Hãy đăng nhập.',
+    'auth/invalid-credential':'Email hoặc mật khẩu không đúng.',
+    'auth/user-not-found':'Không tìm thấy tài khoản này.',
+    'auth/wrong-password':'Mật khẩu không đúng.',
+    'auth/too-many-requests':'Thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.',
+    'auth/popup-closed-by-user':'Bạn đã đóng cửa sổ đăng nhập Google.',
+    'auth/cancelled-popup-request':'',
+    'auth/popup-blocked':'Trình duyệt chặn popup. Hãy cho phép popup rồi thử lại.',
+    'auth/network-request-failed':'Lỗi mạng. Kiểm tra kết nối internet.',
+    'auth/operation-not-allowed':'Phương thức này chưa được bật trong Firebase (Authentication → Sign-in method).',
+    'auth/unauthorized-domain':'Tên miền chưa được cho phép. Thêm domain vào Firebase → Authentication → Settings → Authorized domains.'
+  };
+  return (code in map) ? map[code] : ('Có lỗi: '+code);
+}
+
+function applyAuthMode(){
+  const isLogin = authMode==='login';
+  $id('authTitle').textContent  = isLogin ? '👤 Đăng nhập' : '✨ Tạo tài khoản';
+  $id('authSub').textContent    = isLogin ? 'Đăng nhập để lưu nhạc yêu thích của bạn.' : 'Tạo tài khoản mới chỉ trong 10 giây.';
+  $id('authSubmit').textContent = isLogin ? 'Đăng nhập' : 'Đăng ký';
+  $id('authSwap').textContent   = isLogin ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập';
+  $id('authPass').setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+}
+
+/* ---- mở/đóng modal (gắn vào window cho các onclick) ---- */
+window.openAuth  = function(){ authMode='login'; applyAuthMode(); msg(''); const m=$id('authModal'); if(m) m.classList.add('open'); setTimeout(()=>{const e=$id('authEmail'); if(e) e.focus();},80); };
+window.closeAuth = function(){ const m=$id('authModal'); if(m) m.classList.remove('open'); };
+window.openAcct  = function(){ const m=$id('acctModal'); if(m) m.classList.add('open'); };
+window.closeAcct = function(){ const m=$id('acctModal'); if(m) m.classList.remove('open'); };
+window.swapAuthMode = function(){ authMode = authMode==='login' ? 'signup' : 'login'; applyAuthMode(); msg(''); };
+
+window.qlmGoogle = async function(){
+  msg('Đang mở Google...');
+  try{ await signInWithPopup(auth, provider); window.closeAuth(); }
+  catch(e){ msg(viErr(e.code), 'err'); }
+};
+
+window.qlmEmailAuth = async function(){
+  const email=($id('authEmail').value||'').trim();
+  const pass =$id('authPass').value||'';
+  if(!email){ msg('Vui lòng nhập email.', 'err'); return; }
+  if(!pass){ msg('Vui lòng nhập mật khẩu.', 'err'); return; }
+  msg('Đang xử lý...');
+  try{
+    if(authMode==='login'){
+      await signInWithEmailAndPassword(auth, email, pass);
+    }else{
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      try{ await updateProfile(cred.user, { displayName: email.split('@')[0] }); }catch(e){}
+    }
+    window.closeAuth();
+  }catch(e){ msg(viErr(e.code), 'err'); }
+};
+
+window.qlmReset = async function(){
+  const email=($id('authEmail').value||'').trim();
+  if(!email){ msg('Nhập email vào ô trên rồi bấm "Quên mật khẩu" lần nữa.', 'err'); return; }
+  try{ await sendPasswordResetEmail(auth, email); msg('Đã gửi email đặt lại mật khẩu. Kiểm tra hộp thư nhé!', 'ok'); }
+  catch(e){ msg(viErr(e.code), 'err'); }
+};
+
+window.qlmSignOut = async function(){
+  try{ await signOut(auth); }catch(e){}
+  window.closeAcct();
+  if(window.toast) toast('Đã đăng xuất');
+};
+
+/* ---- cập nhật giao diện theo trạng thái đăng nhập ---- */
+onAuthStateChanged(auth, user => {
+  const loginBtn=$id('loginBtn'), av=$id('userAvatar');
+  window.QLM_USER = user || null;
+  if(user){
+    const name  = user.displayName || (user.email ? user.email.split('@')[0] : 'Bạn');
+    const letter= (name[0]||'?').toUpperCase();
+    const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#c2a06b"/><text x="40" y="54" font-size="42" text-anchor="middle" fill="#191919" font-family="sans-serif" font-weight="700">'+letter+'</text></svg>');
+    const photo = user.photoURL || fallback;
+    if(loginBtn) loginBtn.style.display='none';
+    if(av){ av.src=photo; av.onerror=()=>{av.src=fallback;}; av.style.display=''; av.title=name; }
+    const ap=$id('acctPhoto'); if(ap) ap.src=photo;
+    const an=$id('acctName');  if(an) an.textContent=name;
+    const ae=$id('acctEmail'); if(ae) ae.textContent=user.email||'';
+    if(window.toast && window._authReady) toast('Xin chào, '+name+' 👋');
+  }else{
+    if(loginBtn) loginBtn.style.display='';
+    if(av) av.style.display='none';
+  }
+  window._authReady = true;
+});
 </script>
 </body>
 </html>
