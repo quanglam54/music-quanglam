@@ -401,6 +401,12 @@
     cursor:pointer;background:transparent;transition:.16s}
   .vf-volbtn:hover{background:rgba(255,255,255,.22)}
   .vf-volbtn svg{width:18px;height:18px}
+  /* nút phụ đề CC (giống YouTube): bật thì sáng màu + gạch chân) */
+  .vf-cc{position:relative;color:#fff;display:grid;place-items:center;width:30px;height:28px;border-radius:6px;flex:none;background:transparent;transition:.16s}
+  .vf-cc:hover{background:rgba(255,255,255,.22)}
+  .vf-cc svg{width:21px;height:21px}
+  .vf-cc.on{color:var(--accent)}
+  .vf-cc.on::after{content:'';position:absolute;left:6px;right:6px;bottom:3px;height:2px;background:var(--accent);border-radius:2px}
   .vf-vol{width:76px;flex:none;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;background:rgba(255,255,255,.4);outline:none}
   .vf-vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
   .vf-vol::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#fff;cursor:pointer}
@@ -425,10 +431,11 @@
   .vfs-opt.on{background:var(--accent);color:#191919;font-weight:600}
   .vfs-hint{font-size:.73rem;color:var(--muted);padding:4px 6px;line-height:1.4}
   @media(max-width:560px){ .vf-vol{display:none} .vf-row button{width:30px;height:30px}
-    .vf-volbtn{display:grid;width:30px;height:30px}   /* hiện nút loa (tắt/bật tiếng) trên điện thoại */
-    .vf-row{gap:2px}                                   /* khít hơn để đủ chỗ: loa + bánh răng + toàn màn hình */
-    .vf-time{margin:0 3px;font-size:.72rem}
-    .vf-row button svg{width:18px}
+    .vf-seek{display:none}                             /* ẩn nút tua ±10s nổi (đã có thanh kéo + cụm nút lớn bên dưới) */
+    .vf-volbtn,.vf-cc{display:grid;width:30px;height:30px}  /* hiện loa + CC trên điện thoại */
+    .vf-row{gap:2px}                                   /* khít hơn để đủ chỗ: CC + loa + bánh răng + toàn màn hình */
+    .vf-time{margin:0 4px;font-size:.72rem}
+    .vf-row button svg,.vf-cc svg{width:18px;height:18px}
     /* điện thoại: tách thanh tua xa hàng nút + làm dày hơn cho dễ tua */
     .vf-prog{height:8px;margin-bottom:12px}
     .vf-prog .vf-knob{width:16px;height:16px} }
@@ -743,11 +750,12 @@
         <div class="vf-prog" id="track"><div class="vf-fill" id="bigFill"></div><div class="vf-knob" id="knob"></div></div>
         <div class="vf-row">
           <button id="vfPlay" onclick="event.stopPropagation();togglePlay()" title="Phát/Dừng"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-          <button onclick="event.stopPropagation();seekBy(-10)" title="Lùi 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><text x="13" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
-          <button onclick="event.stopPropagation();seekBy(10)" title="Tua tới 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/><text x="11" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
+          <button class="vf-seek" onclick="event.stopPropagation();seekBy(-10)" title="Lùi 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><text x="13" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
+          <button class="vf-seek" onclick="event.stopPropagation();seekBy(10)" title="Tua tới 10 giây"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/><text x="11" y="16" font-size="8" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">10</text></svg></button>
           <span class="vf-time"><span id="tCur">0:00</span> / <span id="tDur">0:00</span></span>
           <span class="sp"></span>
           <button id="liveBtn" class="vf-live" onclick="event.stopPropagation();goLive()" title="Về phát trực tiếp" style="display:none">TRỰC TIẾP</button>
+          <button class="vf-cc" id="ccBtn" onclick="event.stopPropagation();toggleCC()" title="Phụ đề (CC)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 10.2a2 2 0 0 0-3.5 1.3v1a2 2 0 0 0 3.5 1.3M18 10.2a2 2 0 0 0-3.5 1.3v1a2 2 0 0 0 3.5 1.3" stroke-linecap="round"/></svg></button>
           <button class="vf-volbtn" id="volBtn" onclick="event.stopPropagation();toggleMute()" title="Tắt tiếng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg></button>
           <input type="range" id="vol" class="vf-vol" min="0" max="100" value="100" oninput="setVol(this.value)" onclick="event.stopPropagation()">
           <button id="vfGear" onclick="event.stopPropagation();toggleSettings()" title="Cài đặt: tốc độ phát, chất lượng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
@@ -1327,6 +1335,7 @@ function playCurrent(){
   { const lb=$('liveBtn'); if(lb){ lb.style.display=s.live?'inline-flex':'none'; lb.classList.remove('behind'); } }
   if(ytReady && player){ player.loadVideoById(s.id); }
   else{ pendingId=s.id; }
+  ccApplied=false;                                 // bài mới: cho phép bật lại phụ đề nếu CC đang bật
   pushHistory(s); checkLive(s.id); fetchLyrics(s); saveSession(); loadRelatedList(s);
 }
 function next(){
@@ -1607,7 +1616,8 @@ window.onYouTubeIframeAPIReady=function(){
         if(pendingCue){ player.cueVideoById({videoId:pendingCue.id,startSeconds:pendingCue.t}); pendingCue=null; }
         else if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
-        if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); userPaused=false; wantPlay=true; keepAlive(true); }
+        if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); userPaused=false; wantPlay=true; keepAlive(true);
+          if(ccOn && !ccApplied){ ccApplied=true; setTimeout(applyCC, 600); } }
         else if(e.data===YT.PlayerState.PAUSED){
           setPlayIcon(false); ytCover(true); saveSession();
           /* Nếu KHÔNG phải người dùng bấm dừng → đây là kiểu trình duyệt tự dừng khi tắt màn / đổi tab.
@@ -1686,6 +1696,27 @@ function updateVolIcon(){
   const on='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+spk+'<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>';
   const off='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+spk+'<path d="M17 9l5 5M22 9l-5 5"/></svg>';
   b.innerHTML=muted?off:on; b.title=muted?'Bật tiếng':'Tắt tiếng';
+}
+/* ===== PHỤ ĐỀ (CC) — bật/tắt phụ đề của video qua YouTube API ===== */
+let ccOn=false, ccApplied=false;
+function applyCC(){
+  if(!player) return;
+  try{
+    player.loadModule('captions'); player.loadModule('cc');   // 2 module cho 2 loại trình phát
+    let track={};
+    const tl=player.getOption('captions','tracklist');
+    if(tl && tl.length){ const vi=tl.find(t=>(t.languageCode||'').startsWith('vi')); track=vi||tl[0]; }
+    player.setOption('captions','track', track);              // {} = phụ đề mặc định
+  }catch(e){}
+}
+function clearCC(){ try{ player.setOption('captions','track', {}); player.unloadModule('captions'); player.unloadModule('cc'); }catch(e){} }
+function updateCCIcon(){ const b=$('ccBtn'); if(b){ b.classList.toggle('on',ccOn); b.title = ccOn?'Tắt phụ đề':'Phụ đề (CC)'; } }
+function toggleCC(){
+  if(!player || !ytReady){ toast('Trình phát chưa sẵn sàng'); return; }
+  ccOn=!ccOn;
+  if(ccOn){ applyCC(); ccApplied=true; toast('Đã bật phụ đề (nếu video có)'); }
+  else{ clearCC(); toast('Đã tắt phụ đề'); }
+  updateCCIcon();
 }
 /* về đúng thời điểm phát trực tiếp (sau khi đã tua lại) */
 function goLive(){
