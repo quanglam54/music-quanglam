@@ -2128,12 +2128,12 @@ $('q').addEventListener('keydown', e=>{
 });
 $('q').addEventListener('blur', ()=>setTimeout(hideSug,150));
 
-/* phím tắt: cách=play/pause, mũi tên = prev/next */
+/* phím tắt: cách=play/pause, mũi tên trái/phải = tua lùi/tới 5 giây (như YouTube) */
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
   if(e.code==='Space'){ e.preventDefault(); togglePlay(); }
-  else if(e.code==='ArrowRight') next();
-  else if(e.code==='ArrowLeft') prev();
+  else if(e.code==='ArrowRight'){ e.preventDefault(); seekBy(5); }
+  else if(e.code==='ArrowLeft'){ e.preventDefault(); seekBy(-5); }
 });
 
 /* ============ RÀO CẢN XEM/SỬA NGUỒN ============
