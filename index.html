@@ -645,9 +645,8 @@
     <button class="icon-btn" id="installBtn" title="Cài ứng dụng" onclick="installApp()" style="display:none">⬇️</button>
     <button class="icon-btn" id="themeBtn" title="Sáng / Tối" onclick="toggleTheme()">🌙</button>
     <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()">⚙️</button>
-    <button class="icon-btn" id="loginBtn" title="Đăng nhập" aria-label="Đăng nhập" onclick="openAuth()">👤</button>
-    <img class="avatar" id="userAvatar" alt="Tài khoản" title="Tài khoản" style="display:none" onclick="openAcct()">
-    <img class="avatar" src="quanglam.png" alt="quanglam" title="quanglam·music" onclick="goHome()">
+    <img class="avatar" id="userAvatar" alt="Tài khoản" title="Đăng nhập" onclick="qlmAvatarClick()"
+      src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%232b303c'/><circle cx='40' cy='31' r='15' fill='%23c2a06b'/><path d='M14 70c0-15 12-24 26-24s26 9 26 24z' fill='%23c2a06b'/></svg>">
   </div>
 </header>
 
@@ -2135,6 +2134,12 @@ window.openAcct  = function(){ const m=$id('acctModal'); if(m) m.classList.add('
 window.closeAcct = function(){ const m=$id('acctModal'); if(m) m.classList.remove('open'); };
 window.swapAuthMode = function(){ authMode = authMode==='login' ? 'signup' : 'login'; applyAuthMode(); msg(''); };
 
+/* ảnh người mặc định khi CHƯA đăng nhập (giống src trong header) */
+const DEFAULT_AVATAR = "data:image/svg+xml,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='#2b303c'/><circle cx='40' cy='31' r='15' fill='#c2a06b'/><path d='M14 70c0-15 12-24 26-24s26 9 26 24z' fill='#c2a06b'/></svg>");
+
+/* bấm avatar: chưa đăng nhập -> mở đăng nhập; đã đăng nhập -> mở tài khoản */
+window.qlmAvatarClick = function(){ if(window.QLM_USER) window.openAcct(); else window.openAuth(); };
+
 window.qlmGoogle = async function(){
   msg('Đang mở Google...');
   try{ await signInWithPopup(auth, provider); window.closeAuth(); }
@@ -2173,22 +2178,20 @@ window.qlmSignOut = async function(){
 
 /* ---- cập nhật giao diện theo trạng thái đăng nhập ---- */
 onAuthStateChanged(auth, user => {
-  const loginBtn=$id('loginBtn'), av=$id('userAvatar');
+  const av=$id('userAvatar');
   window.QLM_USER = user || null;
   if(user){
     const name  = user.displayName || (user.email ? user.email.split('@')[0] : 'Bạn');
     const letter= (name[0]||'?').toUpperCase();
     const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#c2a06b"/><text x="40" y="54" font-size="42" text-anchor="middle" fill="#191919" font-family="sans-serif" font-weight="700">'+letter+'</text></svg>');
     const photo = user.photoURL || fallback;
-    if(loginBtn) loginBtn.style.display='none';
-    if(av){ av.src=photo; av.onerror=()=>{av.src=fallback;}; av.style.display=''; av.title=name; }
+    if(av){ av.src=photo; av.onerror=()=>{av.src=fallback;}; av.title=name; }
     const ap=$id('acctPhoto'); if(ap) ap.src=photo;
     const an=$id('acctName');  if(an) an.textContent=name;
     const ae=$id('acctEmail'); if(ae) ae.textContent=user.email||'';
     if(window.toast && window._authReady) toast('Xin chào, '+name+' 👋');
   }else{
-    if(loginBtn) loginBtn.style.display='';
-    if(av) av.style.display='none';
+    if(av){ av.src=DEFAULT_AVATAR; av.onerror=null; av.title='Đăng nhập'; }
   }
   window._authReady = true;
 });
