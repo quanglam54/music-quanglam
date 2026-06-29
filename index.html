@@ -424,7 +424,11 @@
   .vfs-opt:hover{background:rgba(255,255,255,.2)}
   .vfs-opt.on{background:var(--accent);color:#191919;font-weight:600}
   .vfs-hint{font-size:.73rem;color:var(--muted);padding:4px 6px;line-height:1.4}
-  @media(max-width:560px){ .vf-vol,.vf-volbtn{display:none} .vf-row button{width:32px;height:32px}
+  @media(max-width:560px){ .vf-vol{display:none} .vf-row button{width:30px;height:30px}
+    .vf-volbtn{display:grid;width:30px;height:30px}   /* hiện nút loa (tắt/bật tiếng) trên điện thoại */
+    .vf-row{gap:2px}                                   /* khít hơn để đủ chỗ: loa + bánh răng + toàn màn hình */
+    .vf-time{margin:0 3px;font-size:.72rem}
+    .vf-row button svg{width:18px}
     /* điện thoại: tách thanh tua xa hàng nút + làm dày hơn cho dễ tua */
     .vf-prog{height:8px;margin-bottom:12px}
     .vf-prog .vf-knob{width:16px;height:16px} }
@@ -547,6 +551,9 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   @media(max-width:560px){
+    /* video không phình quá to trên điện thoại → luôn thấy thanh điều khiển (loa/bánh răng/toàn màn hình) */
+    .np-stage{justify-content:center}
+    .np-stage .video-wrap{flex:0 0 auto;width:min(100%,58vh);max-width:100%}
     .logo{font-size:1.18rem}
     .searchbox{gap:5px;padding:5px 5px 5px 12px}
     .searchbox input{font-size:.95rem}
@@ -760,6 +767,10 @@
       <button id="radioBtn" class="on" onclick="toggleRadio()" title="Tự phát nhạc liên quan">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 8-8M4 12a8 8 0 0 0 8 8"/><circle cx="12" cy="12" r="2.5"/></svg>
         <span id="radioLbl">Tự phát: Bật</span>
+      </button>
+      <button id="repOneBtn" onclick="toggleRepeatOne()" title="Nghe đi nghe lại 1 bài">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/><text x="12" y="16" font-size="9" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">1</text></svg>
+        <span id="repOneLbl">Lặp 1 bài</span>
       </button>
       <button id="sleepBtn" onclick="cycleSleep()" title="Hẹn giờ tắt nhạc">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -1373,11 +1384,21 @@ function setPlayIcon(p){
 }
 function ytCover(show){ const g=$('ytGuard'); if(g) g.classList.toggle('show', !!show); }
 function toggleShuffle(){ shuffle=!shuffle; $('shufBtn').classList.toggle('on',shuffle); toast(shuffle?'Bật trộn bài':'Tắt trộn bài'); }
+function updateRepeatUI(){
+  const r=$('repBtn'); if(r){ r.classList.toggle('on',repeat!=='off'); r.style.opacity = repeat==='one'?'1':''; }
+  const b=$('repOneBtn'); if(b) b.classList.toggle('on',repeat==='one');
+  const l=$('repOneLbl'); if(l) l.textContent = repeat==='one' ? 'Lặp 1 bài: Bật' : 'Lặp 1 bài';
+}
 function toggleRepeat(){
   repeat = repeat==='off'?'all':repeat==='all'?'one':'off';
-  $('repBtn').classList.toggle('on',repeat!=='off');
-  $('repBtn').style.opacity = repeat==='one'?'1':'';
+  updateRepeatUI();
   toast(repeat==='off'?'Tắt lặp':repeat==='all'?'Lặp toàn bộ':'Lặp 1 bài');
+}
+/* nút riêng: nghe đi nghe lại đúng 1 bài (bật/tắt nhanh) */
+function toggleRepeatOne(){
+  repeat = repeat==='one' ? 'off' : 'one';
+  updateRepeatUI();
+  toast(repeat==='one' ? '🔂 Lặp lại 1 bài: BẬT' : 'Đã tắt lặp lại');
 }
 
 /* ============ PANEL ============ */
