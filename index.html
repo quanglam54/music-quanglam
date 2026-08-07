@@ -1314,14 +1314,21 @@ function sheetCreate(){ const name=$('newPlName').value.trim(); if(!name){ $('ne
     màn hình khoá vẫn đổi mượt như cũ, vì tải lại ở đó sẽ làm đứt mạch phát nhạc.)
    Muốn tắt tính năng này: đổi thành false. */
 const RELOAD_ON_TRACK_CHANGE = true;
+/* Khoá saveSession lại trong lúc chuyển trang.
+   QUAN TRỌNG: rời trang sẽ bắn 'beforeunload' -> saveSession(), tạm dừng video cũng bắn
+   onStateChange -> saveSession(), và vòng lặp 500ms cũng gọi saveSession(). Cả ba sẽ GHI ĐÈ
+   bài vừa chọn bằng bài đang phát cũ -> tải lại xong phát nhầm bài cũ và mất luôn nguồn
+   danh sách phát. Bật cờ này trước khi ghi để chặn hết. */
+let navToTrack = false;
 function reloadToTrack(list, index, src){
   let arr=(list||[]).slice();
   if(arr.length>80){ const st=Math.max(0,index-40); arr=arr.slice(st,st+80); index-=st; }   // cắt bớt cho vừa localStorage, vẫn giữ bài đang chọn
   if(!arr[index]) return false;
+  navToTrack = true;
   try{
     localStorage.setItem(LS.last, JSON.stringify({q:arr, c:index, t:0, src:(src===undefined?QUEUE_SRC:src)}));
     sessionStorage.setItem('qlm_autoplay','1');     // báo cho lần tải sau: phát ngay, đừng chờ bấm
-  }catch(e){ return false; }                        // lưu hỏng thì thôi, đổi bài kiểu thường
+  }catch(e){ navToTrack=false; return false; }      // lưu hỏng thì thôi, đổi bài kiểu thường
   try{ if(player&&player.pauseVideo) player.pauseVideo(); }catch(e){}
   location.replace(location.pathname);              // bỏ ?v= / ?q= cũ rồi tải lại trang
   return true;
@@ -2059,7 +2066,8 @@ function skeleton(){ return '<div class="sk-grid">'+Array.from({length:9}).map((
 
 /* ============ TIẾP TỤC CHỖ ĐANG NGHE ============ */
 function saveSession(){
-  try{ if(!QUEUE.length||CUR<0) return;
+  try{ if(navToTrack) return;              // đang chuyển sang bài vừa chọn -> tuyệt đối không ghi đè
+    if(!QUEUE.length||CUR<0) return;
     const t=(player&&player.getCurrentTime)?(player.getCurrentTime()||0):0;
     localStorage.setItem(LS.last, JSON.stringify({q:QUEUE.slice(0,80), c:CUR, t:t, src:QUEUE_SRC}));
   }catch(e){}
