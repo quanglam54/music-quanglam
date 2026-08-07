@@ -815,7 +815,7 @@
     </div><!-- /np-main -->
     <aside class="np-side">
       <div id="liveChat"></div>
-      <div class="np-side-h">▶ Tiếp theo · Video liên quan</div>
+      <div class="np-side-h" id="npSideH">▶ Tiếp theo · Video liên quan</div>
       <div id="relatedList" class="related-list"></div>
     </aside>
   </div>
@@ -956,7 +956,7 @@ function shareTrack(s){
 let ctxTrack=null;
 function openCtx(ev,src,i){
   ev.stopPropagation(); ev.preventDefault();
-  ctxTrack = src==='rel' ? RELATED[i] : (src==='panel' ? panelResults[i] : null);
+  ctxTrack = src==='rel' ? RELATED[i] : (src==='panel' ? panelResults[i] : (src==='q' ? QUEUE[i] : null));
   if(!ctxTrack) return;
   const m=$('ctxMenu'); if(!m) return;
   const lb=$('ctxLater'); if(lb) lb.innerHTML='<span class="ic">🕒</span> '+(isLater(ctxTrack.id)?'Bỏ khỏi Xem sau':'Lưu vào Xem sau');
@@ -1307,10 +1307,41 @@ function addToPlaylist(id){
 }
 function sheetCreate(){ const name=$('newPlName').value.trim(); if(!name){ $('newPlName').focus(); return; } const p=createPlaylist(name); $('newPlName').value=''; addToPlaylist(p.id); }
 
+/* ============ ĐỔI BÀI = TẢI LẠI TRANG ============
+   Người dùng bấm chọn một bài khác -> tải lại trang rồi phát bài đó từ đầu.
+   Hàng chờ + vị trí được lưu trước khi tải lại nên KHÔNG mất danh sách đang nghe.
+   (Chỉ áp dụng khi NGƯỜI DÙNG tự bấm chọn bài. Hết bài tự chuyển / vuốt / nút trên
+    màn hình khoá vẫn đổi mượt như cũ, vì tải lại ở đó sẽ làm đứt mạch phát nhạc.)
+   Muốn tắt tính năng này: đổi thành false. */
+const RELOAD_ON_TRACK_CHANGE = true;
+function reloadToTrack(list, index, src){
+  let arr=(list||[]).slice();
+  if(arr.length>80){ const st=Math.max(0,index-40); arr=arr.slice(st,st+80); index-=st; }   // cắt bớt cho vừa localStorage, vẫn giữ bài đang chọn
+  if(!arr[index]) return false;
+  try{
+    localStorage.setItem(LS.last, JSON.stringify({q:arr, c:index, t:0, src:(src===undefined?QUEUE_SRC:src)}));
+    sessionStorage.setItem('qlm_autoplay','1');     // báo cho lần tải sau: phát ngay, đừng chờ bấm
+  }catch(e){ return false; }                        // lưu hỏng thì thôi, đổi bài kiểu thường
+  try{ if(player&&player.pauseVideo) player.pauseVideo(); }catch(e){}
+  location.replace(location.pathname);              // bỏ ?v= / ?q= cũ rồi tải lại trang
+  return true;
+}
+
+/* ============ HÀNG CHỜ NÀY ĐẾN TỪ ĐÂU ============
+   Nhớ nguồn của hàng chờ để cột phải hiển thị đúng thứ:
+   - phát từ danh sách phát -> cột phải là CÁC BÀI CÒN LẠI trong danh sách đó
+   - còn lại (tìm kiếm, thịnh hành, video liên quan...) -> cột phải là video liên quan như cũ
+   Muốn áp dụng cho cả Yêu thích / Xem sau: thêm 'fav','later' vào mảng dưới. */
+const SIDE_QUEUE_SRC = ['pl'];
+let QUEUE_SRC = null;
+function srcOfTab(t){ return t==='plview' ? {type:'pl', id:curPl, name:(plById(curPl)||{}).name||'Danh sách phát'} : {type:t}; }
+
 /* ============ QUEUE / PLAY ============ */
 function playFromList(t,i){
   clearHover();
-  const arr=srcArr(t);
+  const arr=srcArr(t), src=srcOfTab(t);
+  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(arr,i,src)) return;
+  QUEUE_SRC = src;
   QUEUE = arr.slice();
   CUR = i;
   playCurrent();
@@ -1359,7 +1390,7 @@ function playCurrent(){
   if(ytReady && player){ player.loadVideoById(s.id); }
   else{ pendingId=s.id; }
   ccApplied=false;                                 // bài mới: cho phép bật lại phụ đề nếu CC đang bật
-  pushHistory(s); checkLive(s.id); fetchLyrics(s); saveSession(); loadRelatedList(s);
+  pushHistory(s); checkLive(s.id); fetchLyrics(s); saveSession(); paintSide(s);
 }
 function next(){
   if(!QUEUE.length) return;
@@ -1396,7 +1427,7 @@ function seekBy(sec){
 /* dừng hẳn & bỏ video đang xem (dùng khi bấm Trang chủ) */
 function stopPlayback(){
   try{ if(player){ if(player.stopVideo) player.stopVideo(); else if(player.pauseVideo) player.pauseVideo(); } }catch(e){}
-  QUEUE=[]; CUR=-1; wantPlay=false; userPaused=true;
+  QUEUE=[]; CUR=-1; QUEUE_SRC=null; wantPlay=false; userPaused=true;
   try{ keepAlive(false); }catch(e){}
   try{ localStorage.removeItem(LS.last); }catch(e){}
   setPlayIcon(false);
@@ -1409,6 +1440,7 @@ function stopPlayback(){
   const bg=$('npBg'); if(bg) bg.classList.remove('show');
   const lb=$('lyrics'); if(lb){ lb.classList.remove('show'); lb.innerHTML=''; }
   const rel=$('relatedList'); if(rel) rel.innerHTML='';
+  const sh=$('npSideH'); if(sh) sh.textContent='▶ Tiếp theo · Video liên quan';
   const mf=$('miniFill'); if(mf) mf.style.width='0';
   renderQueue();
 }
@@ -1480,7 +1512,8 @@ async function panelSearch(e){
 }
 function playPanelResult(i){
   const s=panelResults[i]; if(!s) return;
-  QUEUE=panelResults.slice(); CUR=i; playCurrent();
+  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(panelResults,i,{type:'panel'})) return;
+  QUEUE_SRC={type:'panel'}; QUEUE=panelResults.slice(); CUR=i; playCurrent();
   closePanelSearch(); $('npQ').value='';
   document.querySelector('.np-body').scrollTo({top:0,behavior:'smooth'});
 }
@@ -1643,7 +1676,16 @@ window.onYouTubeIframeAPIReady=function(){
       onReady:()=>{ ytReady=true;
         try{ const sv=localStorage.getItem('qlm_vol'); if(sv!=null){ player.setVolume(+sv); const vEl=$('vol'); if(vEl) vEl.value=sv; } }catch(e){}
         updateVolIcon();
-        if(pendingCue){ player.cueVideoById({videoId:pendingCue.id,startSeconds:pendingCue.t}); pendingCue=null; }
+        if(pendingCue){
+          const pc=pendingCue; pendingCue=null;
+          if(pc.play){                                   // vừa tải lại trang do đổi bài -> phát ngay
+            player.loadVideoById({videoId:pc.id, startSeconds:pc.t});
+            /* vài trình duyệt chặn tự phát sau khi tải lại: thử lại 1 lần,
+               không được thì lớp ảnh bìa vẫn có nút ▶ to để bấm */
+            setTimeout(()=>{ try{ if(player.getPlayerState()!==YT.PlayerState.PLAYING) player.playVideo(); }catch(_){} }, 900);
+          }
+          else player.cueVideoById({videoId:pc.id, startSeconds:pc.t});
+        }
         else if(pendingId){ player.loadVideoById(pendingId); pendingId=null; } },
       onStateChange:(e)=>{
         if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); ytCover(false); userPaused=false; wantPlay=true; keepAlive(true);
@@ -1682,6 +1724,7 @@ async function loadRelated(){
       id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
       thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url }));
     if(!more.length){ toast('Tạm hết nhạc liên quan'); return; }
+    QUEUE_SRC={type:'rel'};                    // đã hết danh sách phát, giờ là nhạc tự nối -> cột phải về video liên quan
     const startAt=QUEUE.length; QUEUE=QUEUE.concat(more); CUR=startAt; playCurrent();
   }catch(e){ toast('Không tải được nhạc liên quan'); }
 }
@@ -1792,7 +1835,7 @@ function renderQueue(){
       </div>
     </div>`).join('');
 }
-function jumpQueue(i){ if(i<0||i>=QUEUE.length) return; CUR=i; playCurrent(); }
+function jumpQueue(i){ if(i<0||i>=QUEUE.length) return; if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(QUEUE,i)) return; CUR=i; playCurrent(); }
 function removeQueue(i){
   if(i<0||i>=QUEUE.length) return;
   const wasCur=(i===CUR); QUEUE.splice(i,1);
@@ -1816,6 +1859,23 @@ function relRowHTML(s,onclick,src,i){
   const views=(s.views!=null)?'<span class="vviews"> · '+fmtViews(s.views)+'</span>':'';
   const more=src?'<button class="rel-more" title="Tuỳ chọn" onclick="openCtx(event,\''+src+'\','+i+')">⋮</button>':'';
   return '<div class="rel-item" onclick="'+onclick+'"><div class="rel-th"><img src="'+s.thumb+'" loading="lazy" onerror="this.style.visibility=\'hidden\'">'+dur+'</div><div class="rmeta"><div class="rti">'+escapeAttr(s.title)+'</div><div class="rch">'+escapeAttr(s.channel)+views+'</div></div>'+more+'</div>';
+}
+/* cột phải = các bài CÒN LẠI trong danh sách phát đang nghe (xếp từ bài kế tiếp, hết thì vòng lại đầu).
+   Trả về false nếu hàng chờ không phải danh sách phát -> để gọi video liên quan như cũ. */
+function renderQueueSide(){
+  const box=$('relatedList'); if(!box) return false;
+  if(!QUEUE_SRC || SIDE_QUEUE_SRC.indexOf(QUEUE_SRC.type)<0 || QUEUE.length<2) return false;
+  const hd=$('npSideH'); if(hd) hd.textContent='▶ Tiếp theo · '+(QUEUE_SRC.name||'Danh sách phát');
+  const order=[]; for(let k=1;k<QUEUE.length;k++) order.push((CUR+k)%QUEUE.length);
+  RELATED=[];
+  box.innerHTML=order.map(i=>relRowHTML(QUEUE[i],'jumpQueue('+i+')','q',i)).join('');
+  return true;
+}
+/* chọn nội dung cho cột phải: bài còn lại trong danh sách phát, hoặc video liên quan */
+function paintSide(s){
+  if(renderQueueSide()) return;
+  const hd=$('npSideH'); if(hd) hd.textContent='▶ Tiếp theo · Video liên quan';
+  loadRelatedList(s);
 }
 function renderRelated(items){
   RELATED=items||[];
@@ -1853,7 +1913,9 @@ async function loadRelatedList(s){
 }
 function playRelated(i){
   const s=RELATED[i]; if(!s) return;
-  QUEUE.push(s); CUR=QUEUE.length-1; playCurrent(); openPanel();
+  const arr=QUEUE.concat([s]);
+  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(arr,arr.length-1,{type:'rel'})) return;   // đã rời danh sách phát -> quay về video liên quan
+  QUEUE_SRC={type:'rel'}; QUEUE.push(s); CUR=QUEUE.length-1; playCurrent(); openPanel();
 }
 
 /* ============ CHIA SẺ ============ */
@@ -1874,7 +1936,7 @@ async function playShared(id){
       s.title=decode(it.snippet.title); s.channel=decode(it.snippet.channelTitle);
       const th=it.snippet.thumbnails&&(it.snippet.thumbnails.medium||it.snippet.thumbnails.default);
       if(th) s.thumb=th.url;
-      paintNowPlaying(s); fetchLyrics(s); loadRelatedList(s);
+      paintNowPlaying(s); fetchLyrics(s); paintSide(s);
     }
   }catch(e){}
 }
@@ -1999,17 +2061,26 @@ function skeleton(){ return '<div class="sk-grid">'+Array.from({length:9}).map((
 function saveSession(){
   try{ if(!QUEUE.length||CUR<0) return;
     const t=(player&&player.getCurrentTime)?(player.getCurrentTime()||0):0;
-    localStorage.setItem(LS.last, JSON.stringify({q:QUEUE.slice(0,80), c:CUR, t:t}));
+    localStorage.setItem(LS.last, JSON.stringify({q:QUEUE.slice(0,80), c:CUR, t:t, src:QUEUE_SRC}));
   }catch(e){}
 }
 function restoreSession(){
   let d; try{ d=JSON.parse(localStorage.getItem(LS.last)||'null'); }catch(e){ d=null; }
   if(!d||!Array.isArray(d.q)||!d.q.length||d.c==null||d.c<0||d.c>=d.q.length) return;
-  QUEUE=d.q; CUR=d.c; const s=QUEUE[CUR]; if(!s) return;
+  /* cờ này chỉ có khi vừa tải lại trang do người dùng bấm đổi bài -> phát ngay */
+  let auto=false;
+  try{ auto = sessionStorage.getItem('qlm_autoplay')==='1'; sessionStorage.removeItem('qlm_autoplay'); }catch(e){}
+  QUEUE=d.q; CUR=d.c; QUEUE_SRC=d.src||null; const s=QUEUE[CUR]; if(!s) return;
   paintNowPlaying(s);
-  pendingCue={id:s.id, t:Math.max(0,d.t||0)};
+  pendingCue={id:s.id, t:Math.max(0,d.t||0), play:auto};
   fetchLyrics(s);
-  setTimeout(()=>toast('Tiếp tục từ chỗ bạn dừng nghe ▶'), 800);
+  if(auto){                                   // vừa đổi bài: mở panel + phát luôn như khi bấm bình thường
+    userPaused=false; wantPlay=true;
+    curIsLive=!!s.live; document.body.classList.toggle('is-live',!!s.live);
+    openPanel(); pushHistory(s); checkLive(s.id); paintSide(s);
+  } else {                                    // mở lại web sau khi thoát: chờ người dùng bấm phát
+    setTimeout(()=>toast('Tiếp tục từ chỗ bạn dừng nghe ▶'), 800);
+  }
 }
 
 /* ============ LỜI BÀI HÁT (lrclib.net — miễn phí, không cần key) ============ */
