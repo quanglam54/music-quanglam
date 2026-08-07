@@ -659,7 +659,8 @@
     <div class="hspace"></div>
     <button class="icon-btn" id="installBtn" title="Cài ứng dụng" onclick="installApp()" style="display:none">⬇️</button>
     <button class="icon-btn" id="themeBtn" title="Sáng / Tối" onclick="toggleTheme()">🌙</button>
-    <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()">⚙️</button>
+    <!-- nút ⚙️ chỉ hiện khi CHƯA có key sẵn (chủ web mở bằng ?setkey=1) — xem updateKeyState() -->
+    <button class="icon-btn" id="keyBtn" title="Cài đặt API key" onclick="openKey()" style="display:none">⚙️</button>
     <img class="avatar" id="userAvatar" alt="Tài khoản" title="Đăng nhập" onclick="qlmAvatarClick()"
       src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%232b303c'/><circle cx='40' cy='31' r='15' fill='%23c2a06b'/><path d='M14 70c0-15 12-24 26-24s26 9 26 24z' fill='%23c2a06b'/></svg>">
   </div>
@@ -1026,7 +1027,17 @@ function saveKey(){
   localStorage.setItem(LS.key, v); closeKey(); updateKeyState();
   toast('Đã lưu key — tìm nhạc thôi! 🎶');
 }
-function updateKeyState(){ $('keyBtn').classList.toggle('warn', !getKey()); }
+/* Ẩn nút ⚙️ với người dùng thường:
+   - Đã dán OWNER_KEY  -> ẩn hẳn (không ai cần nhập gì, cũng đỡ tò mò).
+   - Chưa có key nào    -> hiện ra để người dùng tự nhập, web mới chạy được.
+   - Chủ web muốn mở    -> thêm ?setkey=1 vào cuối địa chỉ. */
+function ownerKeySet(){ return !!(OWNER_KEY && OWNER_KEY.trim()); }
+function keyBtnForced(){ try{ return new URLSearchParams(location.search).has('setkey'); }catch(e){ return false; } }
+function updateKeyState(){
+  const b=$('keyBtn'); if(!b) return;
+  b.style.display = (ownerKeySet() && !keyBtnForced()) ? 'none' : 'grid';
+  b.classList.toggle('warn', !getKey());
+}
 
 /* ============ SEARCH ============ */
 const CHIPS = ['Nhạc hot TikTok','Nhạc trẻ 2026','Vpop mới nhất','US-UK thịnh hành','Lofi chill','Nhạc remix','Ballad buồn','EDM'];
