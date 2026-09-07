@@ -1328,6 +1328,10 @@ function reloadToTrack(list, index, src){
   try{
     localStorage.setItem(LS.last, JSON.stringify({q:arr, c:index, t:0, src:(src===undefined?QUEUE_SRC:src)}));
     sessionStorage.setItem('qlm_autoplay','1');     // báo cho lần tải sau: phát ngay, đừng chờ bấm
+    // giữ lại danh sách/ô tìm kiếm đang xem, kẻo tải lại trang xong loadTrending() đè mất -> phải gõ tìm lại từ đầu
+    if(tab==='search' && lastResults.length){
+      sessionStorage.setItem('qlm_resume_list', JSON.stringify({q:($('q')?$('q').value:''), items:lastResults, head:searchHead}));
+    }
   }catch(e){ navToTrack=false; return false; }      // lưu hỏng thì thôi, đổi bài kiểu thường
   try{ if(player&&player.pauseVideo) player.pauseVideo(); }catch(e){}
   location.replace(location.pathname);              // bỏ ?v= / ?q= cũ rồi tải lại trang
@@ -2203,8 +2207,20 @@ if(_shareV){                                   // mở link chia sẻ bài hát
   else{ renderList(); setTimeout(openKey,500); }
 } else {                                       // mở bình thường
   restoreSession();
-  if(getKey()){ loadTrending(); }
-  else{ renderList(); setTimeout(openKey, 500); }
+  let _resumed=false;
+  try{                                          // vừa đổi bài từ danh sách tìm kiếm -> khôi phục lại đúng danh sách đó
+    const _rl=JSON.parse(sessionStorage.getItem('qlm_resume_list')||'null');
+    sessionStorage.removeItem('qlm_resume_list');
+    if(_rl && Array.isArray(_rl.items) && _rl.items.length){
+      $('q').value=_rl.q||''; toggleClear();
+      lastResults=_rl.items; searchHead=_rl.head||''; tab='search'; switchTabUI(); renderList();
+      _resumed=true;
+    }
+  }catch(e){}
+  if(!_resumed){
+    if(getKey()){ loadTrending(); }
+    else{ renderList(); setTimeout(openKey, 500); }
+  }
 }
 
 /* gợi ý khi gõ */
