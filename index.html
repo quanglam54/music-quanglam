@@ -620,6 +620,24 @@
   .ly-line.on{color:var(--text);opacity:1;font-weight:600;font-size:1.14rem}
   .ly-empty{color:var(--muted);text-align:center;padding:26px 8px;font-size:.9rem}
   .ly-plain{color:var(--text);text-align:left;line-height:1.7;font-size:.92rem;padding:6px 12px;white-space:normal}
+  .ly-sub{display:block;margin-top:6px;font-size:.78rem;opacity:.7}
+  .ly-act{text-align:center;padding:4px 0 10px}
+  .ly-act button{background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:999px;padding:6px 14px;font-size:.82rem;cursor:pointer;transition:.16s;font-family:inherit}
+  .ly-act button:hover{color:var(--text);border-color:var(--accent)}
+  /* đang dán lời thì bỏ giới hạn chiều cao + bỏ hiệu ứng mờ hai đầu */
+  .lyrics-box.editing{height:auto;overflow:visible;-webkit-mask-image:none;mask-image:none}
+  .ly-edit{padding:4px 10px 10px}
+  .ly-edit textarea{width:100%;min-height:190px;resize:vertical;box-sizing:border-box;
+    background:var(--bg3);border:1px solid var(--line);border-radius:12px;
+    color:var(--text);padding:11px 13px;font-size:.88rem;line-height:1.6;font-family:inherit;outline:none}
+  .ly-edit textarea:focus{border-color:var(--accent)}
+  .ly-row{display:flex;gap:8px;justify-content:center;margin-top:9px;flex-wrap:wrap}
+  .ly-row button{border:1px solid var(--line);background:transparent;color:var(--muted);
+    border-radius:999px;padding:7px 18px;font-size:.84rem;cursor:pointer;font-family:inherit;transition:.16s}
+  .ly-row button.pri{background:var(--accent);border-color:var(--accent);color:#191919;font-weight:600}
+  .ly-row button.del{color:#e06c75;border-color:rgba(224,108,117,.4)}
+  .ly-row button:hover{opacity:.85}
 
   /* ===== MÀU CHỦ ĐẠO (accent picker) ===== */
   .accent-dots{display:flex;gap:11px;padding:8px 14px 6px;flex-wrap:wrap}
@@ -925,7 +943,7 @@ let tab = 'search';
 let sugItems = [], sugHi = -1, sugSeq = 0, sugTimer = null;
 let shuffle = false, repeat = 'off'; // off | all | one
 let player = null, ytReady = false, pendingId = null, pendingCue = null;
-let LYRICS=[], lyricsActive=-1, lyricsToken=0, lastSwipeAt=0, _saveTick=0;
+let LYRICS=[], lyricsActive=-1, lyricsToken=0, lastSwipeAt=0, _saveTick=0, curLySong=null;
 let isPlaying = false, seeking = false;
 let userPaused = false, wantPlay = false, silentURL = null, silentAudio = null; // phát nền khi tắt màn
 
@@ -2095,17 +2113,22 @@ function restoreSession(){
   }
 }
 
-/* ============ LỜI BÀI HÁT (lrclib.net — miễn phí, không cần key) ============ */
+/* ============ LỜI BÀI HÁT (lrclib.net + lời tự thêm) ============ */
 /* lrclib index không dấu → phải bỏ dấu tiếng Việt trước khi tìm */
 function noTone(t){
   return (t||'').normalize('NFD').replace(/\p{Diacritic}/gu,'')
     .replace(/đ/g,'d').replace(/Đ/g,'D');
 }
 function cleanTitle(t){
-  return (t||'').replace(/\(.*?\)|\[.*?\]|\{.*?\}/g,' ')
-    .replace(/official|music|video|lyrics?|audio|m\/?v|hd|4k|visualizer|performance|cover|live|karaoke|teaser|trailer|full\s*hd|mp3/gi,' ')
+  return (t||'').replace(/\(.*?\)|\[.*?\]|\{.*?\}|【.*?】|「.*?」/g,' ')
+    .replace(/official|music|video|lyrics?|audio|m\/?v|hd|4k|visualizer|performance|cover|live|karaoke|teaser|trailer|vietsub|full\s*hd|mp3/gi,' ')
     .replace(/[|•·]\s*(prod|beat|topic).*$/i,' ')
     .replace(/\s+/g,' ').trim();
+}
+/* chuẩn hoá về "chỉ chữ thường và số, cách nhau 1 dấu cách" để so khớp */
+function lyKey(t){
+  return noTone((t||'').replace(/\(.*?\)|\[.*?\]/g,' '))
+    .toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
 }
 /* tiêu đề YouTube thường là "Nghệ sĩ | Tên bài | …" hoặc "Tên bài - Nghệ sĩ (…)"
    → cắt thành từng mảnh rồi thử từ rộng đến hẹp, dừng ngay khi khớp */
@@ -2120,22 +2143,60 @@ function lyricQueries(s){
   for(let n=w.length-1;n>=3;n--) add(w.slice(0,n).join(' '));
   return out.slice(0,6);
 }
-/* tỉ lệ từ trong tên bài tìm được có mặt trong tiêu đề gốc (0…1) */
-function lyricScore(hit,want){
-  const tw=noTone((hit.trackName||hit.name||'').replace(/\(.*?\)|\[.*?\]/g,' '))
-    .toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  if(!tw.length) return 0;
-  const wl=' '+want+' '; let m=0;
-  tw.forEach(w=>{ if(wl.indexOf(' '+w+' ')>=0) m++; });
-  return m/tw.length;
+/* nhiều bài trong kho ghi kèm tên nghệ sĩ ở đầu/cuối tên bài → bóc ra lấy phần lõi */
+function lyTrack(hit){
+  const tn=lyKey(hit.trackName||hit.name||''), an=lyKey(hit.artistName||'');
+  if(an && tn!==an){
+    if(tn.indexOf(an+' ')===0) return tn.slice(an.length+1);
+    if(tn.length>an.length && tn.slice(-an.length-1)===' '+an) return tn.slice(0,-an.length-1);
+  }
+  return tn;
 }
+/* CHỐT CHẶN: tên bài phải nằm nguyên cụm trong tiêu đề, và thời lượng không được lệch quá xa.
+   Chỉ đếm tỉ lệ từ trùng là không đủ — "10/10" từng khớp 100% với chữ "10" trong "TẬP 10". */
+function lyricOk(hit,want,dur){
+  const wl=' '+want+' ', an=lyKey(hit.artistName||'');
+  const artistHit = !!an && wl.indexOf(' '+an+' ')>=0;
+  const phrase=t=>{
+    if(!t || t.replace(/[^a-z]/g,'').length<2) return false;
+    if(wl.indexOf(' '+t+' ')<0) return false;
+    /* tên bài chỉ 1 chữ và ngắn ("Ngọt", "Mây") rất dễ trùng bừa với tên nghệ sĩ
+       trong tiêu đề → chỉ nhận khi trùng luôn cả nghệ sĩ */
+    if(t.indexOf(' ')<0 && t.length<7 && !artistHit) return false;
+    return true;
+  };
+  if(!phrase(lyTrack(hit)) && !phrase(lyKey(hit.trackName||hit.name||''))) return false;
+  if(dur>0 && hit.duration>0 && Math.abs(hit.duration-dur)>45) return false;
+  return true;
+}
+/* trong số các bài đã qua chốt chặn, chọn bài đáng tin nhất */
+function lyricRank(hit,want,dur){
+  let r = hit.syncedLyrics ? 2 : 0;
+  const an=lyKey(hit.artistName||'');
+  if(an && (' '+want+' ').indexOf(' '+an+' ')>=0) r+=1;            // trùng cả nghệ sĩ
+  if(dur>0 && hit.duration>0) r += Math.max(0, 1-Math.abs(hit.duration-dur)/45);
+  r += Math.min(lyTrack(hit).split(' ').length,6)*0.15;   /* khớp được nhiều chữ hơn thì đáng tin hơn */
+  return r;
+}
+
+/* ---- lời tự thêm (cho những bài lrclib không có) ---- */
+const LS_LY='qlm_lyrics';
+function getCustomLyrics(){ try{ return JSON.parse(localStorage.getItem(LS_LY)||'{}')||{}; }catch(e){ return {}; } }
+function saveCustomLyrics(o){ try{ localStorage.setItem(LS_LY, JSON.stringify(o)); }catch(e){} }
+
 async function fetchLyrics(s){
   const box=$('lyrics'); if(!box) return;
   const tok=++lyricsToken; LYRICS=[]; lyricsActive=-1;
-  box.classList.add('show'); box.innerHTML='<div class="ly-empty">Đang tìm lời bài hát…</div>';
+  curLySong = s ? {id:s.id, title:s.title} : null;
+  box.classList.add('show'); box.classList.remove('editing');
+  /* lời mình tự thêm thì ưu tiên, khỏi hỏi mạng */
+  const mine=s&&s.id ? getCustomLyrics()[s.id] : null;
+  if(mine){ showLyrics(mine, true); return; }
+  box.innerHTML='<div class="ly-empty">Đang tìm lời bài hát…</div>';
   const qs=lyricQueries(s);
-  const want=noTone(cleanTitle(s.title)||s.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
-  let best=null, bestScore=0, bestOv=0;
+  const want=lyKey(cleanTitle(s.title)||s.title||'');
+  const dur=+(s&&s.dur)||0;
+  let best=null, bestRank=-1;
   try{
     for(let i=0;i<qs.length;i++){
       let arr=[];
@@ -2144,18 +2205,67 @@ async function fetchLyrics(s){
         arr=await r.json();
       }catch(e){ arr=[]; }
       if(tok!==lyricsToken) return;
-      (arr||[]).forEach(x=>{
+      if(!Array.isArray(arr)) arr=[];
+      arr.forEach(x=>{
         if(!x||(!x.syncedLyrics&&!x.plainLyrics)) return;
-        const ov=lyricScore(x,want), sc=ov+(x.syncedLyrics?.35:0);
-        if(sc>bestScore){ bestScore=sc; bestOv=ov; best=x; }
+        if(!lyricOk(x,want,dur)) return;
+        const rk=lyricRank(x,want,dur);
+        if(rk>bestRank){ bestRank=rk; best=x; }
       });
-      if(best&&bestScore>=1.2) break;   /* khớp gần như tuyệt đối + có lời chạy theo nhạc */
+      if(best&&bestRank>=2) break;   /* đã có bản chạy theo nhạc khớp chắc → dừng, khỏi gọi thêm */
     }
     if(tok!==lyricsToken) return;
-    if(!best||bestOv<.6){ box.innerHTML='<div class="ly-empty">Chưa có lời cho bài này 🎵</div>'; return; }
-    if(best.syncedLyrics){ LYRICS=parseLRC(best.syncedLyrics); renderLyrics(); }
-    else{ box.innerHTML='<div class="ly-plain">'+escapeAttr(best.plainLyrics).replace(/\n/g,'<br>')+'</div>'; }
-  }catch(e){ if(tok===lyricsToken) box.innerHTML='<div class="ly-empty">Không tải được lời 🎵</div>'; }
+    if(!best){ lyEmpty(); return; }
+    showLyrics(best.syncedLyrics||best.plainLyrics, false);
+  }catch(e){ if(tok===lyricsToken) box.innerHTML='<div class="ly-empty">Không tải được lời 🎵</div>'+lyAddBtn(); }
+}
+
+/* hiện lời — tự nhận dạng LRC (chạy theo nhạc) hay lời thường */
+function showLyrics(text, mine){
+  const box=$('lyrics'); if(!box) return;
+  box.classList.remove('editing');
+  const lrc=parseLRC(text||'');
+  if(lrc.length){ LYRICS=lrc; lyricsActive=-1; renderLyrics(mine); return; }
+  LYRICS=[];
+  box.innerHTML='<div class="ly-plain">'+escapeAttr(text||'').replace(/\n/g,'<br>')+'</div>'+lyAddBtn(mine);
+}
+function lyAddBtn(mine){
+  if(!curLySong) return '';
+  return '<div class="ly-act"><button onclick="lyEditor(1)">'+(mine?'✍️ Sửa lời':'✍️ Tự thêm lời')+'</button></div>';
+}
+function lyEmpty(){
+  const box=$('lyrics'); if(!box) return;
+  LYRICS=[];
+  box.innerHTML='<div class="ly-empty">Chưa có lời cho bài này 🎵<br><span class="ly-sub">Kho lrclib chưa ai nhập lời cho bài này</span></div>'+lyAddBtn();
+}
+/* mở ô dán lời */
+function lyEditor(open){
+  const box=$('lyrics'); if(!box||!curLySong) return;
+  if(!open){ fetchLyrics({id:curLySong.id, title:curLySong.title, dur:0}); return; }
+  const cur=getCustomLyrics()[curLySong.id]||'';
+  box.classList.add('editing');
+  box.innerHTML='<div class="ly-edit">'
+    +'<textarea id="lyTa" spellcheck="false" placeholder="Dán lời bài hát vào đây…&#10;&#10;Muốn lời chạy theo nhạc thì dán dạng LRC:&#10;[00:12.50] Câu hát thứ nhất&#10;[00:18.20] Câu hát thứ hai">'+escapeAttr(cur)+'</textarea>'
+    +'<div class="ly-row"><button class="pri" onclick="lySave()">Lưu</button>'
+    +'<button onclick="lyEditor(0)">Huỷ</button>'
+    +(cur?'<button class="del" onclick="lyDelete()">Xoá</button>':'')
+    +'</div></div>';
+  const ta=$('lyTa'); if(ta) ta.focus();
+}
+function lySave(){
+  const ta=$('lyTa'); if(!ta||!curLySong) return;
+  const v=(ta.value||'').trim();
+  const all=getCustomLyrics();
+  if(v) all[curLySong.id]=v; else delete all[curLySong.id];
+  saveCustomLyrics(all);
+  if(v) showLyrics(v, true); else lyEmpty();
+  try{ toast&&toast('Đã lưu lời bài hát'); }catch(e){}
+}
+function lyDelete(){
+  if(!curLySong) return;
+  const all=getCustomLyrics(); delete all[curLySong.id];
+  saveCustomLyrics(all);
+  fetchLyrics({id:curLySong.id, title:curLySong.title, dur:0});
 }
 function parseLRC(str){
   const out=[];
@@ -2168,10 +2278,10 @@ function parseLRC(str){
   });
   out.sort((a,b)=>a.t-b.t); return out;
 }
-function renderLyrics(){
+function renderLyrics(mine){
   const box=$('lyrics'); if(!box) return;
-  if(!LYRICS.length){ box.innerHTML='<div class="ly-empty">Chưa có lời 🎵</div>'; return; }
-  box.innerHTML=LYRICS.map((l,i)=>'<p class="ly-line" data-i="'+i+'" onclick="lyricSeek('+i+')">'+(escapeAttr(l.text)||'♪')+'</p>').join('');
+  if(!LYRICS.length){ lyEmpty(); return; }
+  box.innerHTML=LYRICS.map((l,i)=>'<p class="ly-line" data-i="'+i+'" onclick="lyricSeek('+i+')">'+(escapeAttr(l.text)||'♪')+'</p>').join('')+lyAddBtn(mine);
 }
 function lyricSeek(i){ const l=LYRICS[i]; if(l&&player&&player.seekTo){ player.seekTo(l.t,true); if(player.playVideo) player.playVideo(); } }
 function syncLyrics(cur){
@@ -2414,6 +2524,7 @@ const LS_FAVS='qlm_favs', LS_LATER='qlm_later', LS_HIST='qlm_hist', LS_PLS='qlm_
 let currentUid=null;
 
 function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
+function lsObjGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'{}')||{}; }catch(e){ return {}; } }
 function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 
 /* gộp 2 danh sách theo id (giữ thứ tự: máy trước, cloud bổ sung sau); cap = giới hạn số bài */
@@ -2451,9 +2562,11 @@ async function pullAndMerge(uid){
   const mLater= mergeList(lsGet(LS_LATER), cloud.later);
   const mHist = mergeList(lsGet(LS_HIST),  cloud.hist, 60);
   const mPls  = mergePlaylists(lsGet(LS_PLS), cloud.playlists);
+  const mLy   = Object.assign({}, cloud.lyrics||{}, lsObjGet('qlm_lyrics'));   /* lời tự thêm: bản ở máy được ưu tiên */
   lsSet(LS_FAVS,mFavs); lsSet(LS_LATER,mLater); lsSet(LS_HIST,mHist); lsSet(LS_PLS,mPls);
+  try{ localStorage.setItem('qlm_lyrics', JSON.stringify(mLy)); }catch(e){}
   refreshUI();
-  try{ await setDoc(doc(db,'users',uid), {favs:mFavs, later:mLater, hist:mHist, playlists:mPls, updatedAt:Date.now()}, {merge:true}); }
+  try{ await setDoc(doc(db,'users',uid), {favs:mFavs, later:mLater, hist:mHist, playlists:mPls, lyrics:mLy, updatedAt:Date.now()}, {merge:true}); }
   catch(e){ console.warn('[sync] đẩy cloud lỗi:', e); }
 }
 
@@ -2485,6 +2598,7 @@ wrapSaver('saveFavs',      'favs',      args=>args[0]);
 wrapSaver('saveLater',     'later',     args=>args[0]);
 wrapSaver('savePlaylists', 'playlists', args=>args[0]);
 wrapSaver('pushHistory',   'hist',      ()=>lsGet(LS_HIST).slice(0,60));
+wrapSaver('saveCustomLyrics','lyrics',  args=>args[0]);
 
 /* ---- cập nhật giao diện theo trạng thái đăng nhập ---- */
 onAuthStateChanged(auth, user => {
