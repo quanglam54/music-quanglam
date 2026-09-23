@@ -845,7 +845,7 @@
   <div class="modal-box">
     <button class="close" onclick="closeKey()">✕</button>
     <h3>🔑 Kết nối YouTube</h3>
-    <p class="sub">Để "tìm bài gì cũng ra", web cần một <b>YouTube API key</b> miễn phí của Google. Làm 1 lần, ~2 phút.</p>
+    <p class="sub">Web vẫn tìm được bài mà không cần key (có nguồn dự phòng). Thêm <b>YouTube API key</b> miễn phí sẽ cho kết quả chuẩn YouTube và nhanh hơn. Làm 1 lần, ~2 phút.</p>
     <ol>
       <li>Vào <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud Console</a> → bấm <b>Enable</b> (bật YouTube Data API v3).</li>
       <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <b>Create credentials</b> → <b>API key</b>.</li>
@@ -854,7 +854,7 @@
     <label>YouTube API key</label>
     <input id="keyInput" type="text" placeholder="AIzaSy..." autocomplete="off">
     <button class="save" onclick="saveKey()">Lưu & bắt đầu nghe</button>
-    <div class="note-warn">💡 Mỗi key miễn phí cho khoảng <b>100 lượt tìm/ngày</b>. Đủ dùng cá nhân. Key lưu trên máy bạn, không gửi đi đâu khác ngoài Google.</div>
+    <div class="note-warn">💡 Mỗi key miễn phí cho khoảng <b>100 lượt tìm/ngày</b>. Hết lượt, web <b>tự chuyển sang nguồn dự phòng</b> nên ô tìm kiếm vẫn chạy — chỉ là kết quả không phải từ API chính thức. Key lưu trên máy bạn, không gửi đi đâu ngoài Google.<br><br>Chủ web muốn tăng số lượt tìm: tạo thêm key ở <b>project Google Cloud khác</b> rồi thêm vào danh sách <code>OWNER_KEYS</code> trong index.html — mỗi key cộng thêm ~100 lượt/ngày, web tự xoay vòng.</div>
   </div>
 </div>
 
@@ -930,7 +930,13 @@
 /* 👇👇👇 CHỦ WEB DÁN KEY CỦA BẠN VÀO GIỮA 2 DẤU NHÁY DƯỚI ĐÂY 👇👇👇
    Khi đã dán key, MỌI người vào web đều dùng chung key này — không ai phải nhập gì.
    (Nhớ vào Google Cloud giới hạn key theo tên miền web của bạn cho an toàn.) */
-const OWNER_KEY = 'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY';
+const OWNER_KEYS = [
+  'AIzaSyCIQOdpRn4Vznq82xV-v_7opuwxhcai7sY',
+  /* THÊM KEY DỰ PHÒNG Ở ĐÂY — mỗi key 1 dòng, có dấu phẩy cuối dòng.
+     Mỗi key = 1 project Google Cloud riêng = thêm 100 lượt tìm/ngày.
+     Key nào hết quota web sẽ TỰ ĐỘNG nhảy sang key kế tiếp. */
+];
+const OWNER_KEY = OWNER_KEYS[0] || '';
 /* 👆👆👆 ------------------------------------------------------- 👆👆👆 */
 
 const LS = { key:'qlm_key', favs:'qlm_favs', hist:'qlm_hist', theme:'qlm_theme', playlists:'qlm_playlists', last:'qlm_last', accent:'qlm_accent', live:'qlm_live', later:'qlm_later' };
@@ -948,7 +954,7 @@ let isPlaying = false, seeking = false;
 let userPaused = false, wantPlay = false, silentURL = null, silentAudio = null; // phát nền khi tắt màn
 
 const $ = id => document.getElementById(id);
-function getKey(){ return (OWNER_KEY && OWNER_KEY.trim()) || localStorage.getItem(LS.key) || ''; }
+function getKey(){ try{ return allKeys()[0]||''; }catch(e){ return (OWNER_KEY&&OWNER_KEY.trim())||localStorage.getItem(LS.key)||''; } }
 function getFavs(){ try{ return JSON.parse(localStorage.getItem(LS.favs)||'[]'); }catch(e){ return []; } }
 function saveFavs(a){ localStorage.setItem(LS.favs, JSON.stringify(a)); }
 /* ===== XEM SAU (Watch Later) ===== */
@@ -1027,13 +1033,144 @@ async function enrichDetails(items,key){
   const ids=(items||[]).filter(x=>x&&x.id&&x.dur==null&&!x.live).map(x=>x.id);
   if(!ids.length) return;
   try{
-    const url='https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id='+ids.slice(0,50).join(',')+'&key='+encodeURIComponent(key);
-    const r=await fetch(url); const d=await r.json();
-    if(!d.items) return;
+    let d=null;
+    for(const k of allKeys()){
+      const url='https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id='+ids.slice(0,50).join(',')+'&key='+encodeURIComponent(k);
+      const r=await fetchTO(url,9000); const j=await r.json();
+      if(j.error){ if(isQuotaErr(j.error,r.status)) continue; return; }   // hạn mức này khác hạn mức tìm kiếm
+      d=j; break;
+    }
+    if(!d||!d.items) return;
     const map={};
     d.items.forEach(it=>{ map[it.id]={ dur:parseISODur(it.contentDetails&&it.contentDetails.duration), views:+((it.statistics&&it.statistics.viewCount))||0 }; });
     items.forEach(x=>{ if(x&&map[x.id]){ x.dur=map[x.id].dur; x.views=map[x.id].views; } });
   }catch(e){}
+}
+
+/* ============ TÌM KIẾM: XOAY KEY + NGUỒN DỰ PHÒNG (0 QUOTA) ============
+   YouTube Data API cho mỗi project ~100 lượt search/ngày. Hết là web "không tìm được".
+   Ở đây: 1) thử lần lượt từng key trong OWNER_KEYS (key hết quota bị đánh dấu, hôm sau tự bỏ dấu)
+          2) hết sạch key -> tự chuyển sang Piped/Invidious (mirror công khai của YouTube, KHÔNG tốn quota)
+   Nhờ vậy ô tìm kiếm luôn chạy, kể cả khi quota cạn. */
+
+/* --- đánh dấu key đã hết quota trong ngày (quota Google reset 0h giờ Thái Bình Dương) --- */
+function quotaDay(){ // đổi sang mốc ngày theo giờ Thái Bình Dương (UTC-7/-8) cho khớp lúc Google reset
+  return new Date(Date.now()-8*3600*1000).toISOString().slice(0,10);
+}
+function getDeadKeys(){
+  try{ const d=JSON.parse(localStorage.getItem('qlm_deadkeys')||'null');
+       if(d && d.day===quotaDay() && Array.isArray(d.keys)) return d.keys; }catch(e){}
+  return [];
+}
+function markKeyDead(k){
+  if(!k) return;
+  const cur=getDeadKeys(); if(cur.includes(k)) return;
+  cur.push(k);
+  try{ localStorage.setItem('qlm_deadkeys', JSON.stringify({day:quotaDay(), keys:cur})); }catch(e){}
+}
+/* tất cả key có thể dùng: key chủ web + key người dùng tự nhập (nếu có) */
+function allKeys(){
+  const mine=localStorage.getItem(LS.key)||'';
+  const a=(OWNER_KEYS||[]).map(k=>(k||'').trim()).filter(Boolean);
+  if(mine.trim() && !a.includes(mine.trim())) a.push(mine.trim());
+  return a;
+}
+/* key còn quota để dùng cho các lệnh rẻ (trending, chi tiết video...) */
+function liveKeys(){
+  const dead=getDeadKeys();
+  const all=allKeys();
+  const a=all.filter(k=>!dead.includes(k));
+  if(a.length) return a;
+  /* Hết sạch key -> chạy bằng nguồn dự phòng cho nhanh, nhưng cứ 15 phút thử lại API 1 lần
+     (phòng khi Google đã reset quota hoặc lúc nãy đánh dấu nhầm). */
+  let last=parseInt(localStorage.getItem('qlm_key_probe'),10)||0;
+  if(Date.now()-last > 15*60*1000){
+    try{ localStorage.setItem('qlm_key_probe', String(Date.now())); }catch(e){}
+    return all;
+  }
+  return [];
+}
+/* lỗi này có phải do hết quota không? (Google trả nhiều kiểu: 403 quotaExceeded, 429 rateLimitExceeded...) */
+function isQuotaErr(err,code){
+  const r=(err && err.errors && err.errors[0] && err.errors[0].reason)||'';
+  const m=(err && err.message)||'';
+  return code===429 || /quota|rateLimit|dailyLimit/i.test(r) || /Quota exceeded|quota metric/i.test(m);
+}
+function fetchTO(url,ms){        // fetch có giới hạn thời gian, tránh treo khi 1 nguồn chết
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms||9000);
+  return fetch(url,{signal:c.signal}).finally(()=>clearTimeout(t));
+}
+/* ảnh thumbnail lấy thẳng từ YouTube -> không phụ thuộc nguồn dự phòng còn sống hay không */
+function ytThumb(id){ return 'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg'; }
+
+/* --- các mirror công khai dùng khi hết quota (đều cho phép gọi từ trình duyệt) --- */
+const FALLBACK_SRC=[
+  {t:'piped', u:'https://api.piped.private.coffee'},
+  {t:'piped', u:'https://pipedapi.ducks.party'},
+  {t:'inv',   u:'https://yt.omada.cafe'},
+  {t:'inv',   u:'https://invidious.f5.si'}
+];
+function fbOrder(){   // bắt đầu từ nguồn đã chạy được lần trước -> lần sau nhanh hơn
+  const a=FALLBACK_SRC.slice();
+  let i=parseInt(localStorage.getItem('qlm_fb_i'),10); if(isNaN(i)) i=0;
+  i=((i%a.length)+a.length)%a.length;
+  return a.slice(i).concat(a.slice(0,i));
+}
+async function fbSearch(src,q,max,live){
+  if(src.t==='piped'){
+    const r=await fetchTO(src.u+'/search?q='+encodeURIComponent(q)+'&filter=videos',9000);
+    const d=await r.json();
+    let it=(d.items||[]).filter(x=>x&&x.url&&/[?&]v=/.test(x.url));
+    if(live) it=it.filter(x=>x.duration<0);
+    return it.map(x=>{
+      const id=(x.url.match(/[?&]v=([^&]+)/)||[])[1];
+      return { id, title:decode(x.title||''), channel:decode(x.uploaderName||''),
+               thumb:ytThumb(id), dur:(x.duration>0?x.duration:null), views:+x.views||0,
+               live:x.duration<0 };
+    }).filter(x=>x.id).slice(0,max);
+  }
+  const r=await fetchTO(src.u+'/api/v1/search?q='+encodeURIComponent(q)+'&type=video'+(live?'&features=live':''),9000);
+  const d=await r.json();
+  if(!Array.isArray(d)) throw new Error('bad');
+  let it=d.filter(x=>x&&x.videoId&&(x.type==='video'||!x.type));
+  if(live) it=it.filter(x=>x.liveNow);
+  return it.map(x=>({ id:x.videoId, title:decode(x.title||''), channel:decode(x.author||''),
+                      thumb:ytThumb(x.videoId), dur:(x.lengthSeconds>0?x.lengthSeconds:null),
+                      views:+x.viewCount||0, live:!!x.liveNow })).slice(0,max);
+}
+
+/* HÀM TÌM KIẾM DÙNG CHUNG CHO CẢ WEB
+   trả về { items, src }  — src: 'api' (YouTube chính thức) hoặc 'fallback' (mirror, 0 quota) */
+async function ytSearch(q,opt){
+  opt=opt||{}; const max=opt.max||24, live=!!opt.live;
+  let sawQuota=false;
+  for(const key of liveKeys()){
+    try{
+      const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true'+
+                (live?'&eventType=live':'')+'&maxResults='+max+'&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+      const r=await fetchTO(url,9000); const d=await r.json();
+      if(d.error){
+        if(isQuotaErr(d.error,r.status)){ markKeyDead(key); sawQuota=true; continue; }  // key này cạn -> thử key sau
+        break;                                                                          // lỗi khác (key sai...) -> sang dự phòng
+      }
+      const items=(d.items||[]).filter(it=>it.id&&it.id.videoId).map(it=>({
+        id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
+        thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url, live:live||undefined }));
+      if(items.length) return { items, src:'api' };
+    }catch(e){ /* mạng lỗi -> thử tiếp */ }
+  }
+  /* hết key hoặc lỗi -> dùng mirror công khai, không tốn quota */
+  const order=fbOrder();
+  for(const src of order){
+    try{
+      const items=await fbSearch(src,q,max,live);
+      if(items.length){
+        try{ localStorage.setItem('qlm_fb_i', String(FALLBACK_SRC.indexOf(src))); }catch(e){}
+        return { items, src:'fallback' };
+      }
+    }catch(e){ /* nguồn này chết -> thử nguồn sau */ }
+  }
+  const err=new Error('no-source'); err.quota=sawQuota; throw err;
 }
 
 /* ============ API KEY ============ */
@@ -1107,9 +1244,16 @@ function doSearch(e){ e.preventDefault(); const q=$('q').value.trim(); if(q) run
 function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 /* lấy bảng thịnh hành của 1 khu vực (rẻ quota: 1 điểm/lần) */
 async function fetchTrending(region,key){
-  const url='https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode='+region+'&maxResults=50&key='+encodeURIComponent(key);
-  const r=await fetch(url); const data=await r.json();
-  if(data.error||!data.items) return null;
+  let data=null;
+  for(const k of allKeys()){          // key nào cạn quota thì tự nhảy sang key kế
+    try{
+      const url='https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode='+region+'&maxResults=50&key='+encodeURIComponent(k);
+      const r=await fetchTO(url,9000); const d=await r.json();
+      if(d.error){ if(isQuotaErr(d.error,r.status)) continue; return null; }   // hạn mức này khác hạn mức tìm kiếm
+      data=d; break;
+    }catch(e){}
+  }
+  if(!data||!data.items) return null;
   return data.items.filter(it=>it.id).map(it=>({
     id:it.id, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
     thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url,
@@ -1127,7 +1271,7 @@ const TRENDING_SRC=[
   {r:'GB',h:'Thịnh hành tại Anh Quốc'}
 ];
 async function loadTrending(){
-  const key=getKey(); if(!key) return;
+  const key=getKey();                 // hết quota tìm kiếm vẫn xem được Thịnh hành (hạn mức khác)
   tab='search'; switchTabUI();
   $('list').className=''; $('list').innerHTML=skeleton();
   /* xoay vòng: mỗi lần load lấy vùng kế tiếp (lưu vị trí trong localStorage) → reload là đổi */
@@ -1158,13 +1302,9 @@ async function loadLive(key){
   }catch(e){}
   const q=LIVE_Q[Math.floor(Math.random()*LIVE_Q.length)];
   try{
-    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&eventType=live&videoEmbeddable=true&maxResults=12&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
-    const r=await fetch(url); const d=await r.json();
-    if(d.error||!d.items) return;
-    liveResults=d.items.filter(it=>it.id&&it.id.videoId).map(it=>({
-      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
-      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url, live:true
-    }));
+    const res=await ytSearch(q,{max:12,live:true});
+    liveResults=res.items.map(x=>({ id:x.id, title:x.title, channel:x.channel, thumb:x.thumb, live:true }));
+    if(!liveResults.length) return;
     try{ localStorage.setItem(LS.live, JSON.stringify({t:Date.now(), items:liveResults})); }catch(e){}
     renderLive();
   }catch(e){}
@@ -1178,8 +1318,6 @@ function renderLive(){
 }
 
 async function runSearch(q){
-  const key=getKey();
-  if(!key){ openKey(); return; }
   hideSug(); switchTab('search');
   $('list').className=''; $('list').innerHTML=skeleton();
   searchHead='<span class="dot">🔎</span> Kết quả cho "'+escapeAttr(q)+'"';
@@ -1189,28 +1327,17 @@ async function runSearch(q){
     if(c&&c.items&&c.items.length&&(Date.now()-c.t)<SEARCH_TTL){ lastResults=c.items; renderList(); return; }
   }catch(e){}
   try{
-    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=24&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
-    const r=await fetch(url);
-    const data=await r.json();
-    if(data.error){
-      const reason=(data.error.errors&&data.error.errors[0]&&data.error.errors[0].reason)||'';
-      let msg=data.error.message||'Lỗi không rõ';
-      if(reason==='quotaExceeded') msg='Đã hết lượt tìm miễn phí trong ngày (quota). Thử lại ngày mai hoặc tạo key mới.';
-      if(reason==='keyInvalid'||data.error.code===400) msg='API key không hợp lệ. Kiểm tra lại trong ⚙️.';
-      $('list').innerHTML='<div class="err">⚠️ '+msg+'</div>';
-      return;
-    }
-    lastResults=(data.items||[]).filter(it=>it.id&&it.id.videoId).map(it=>({
-      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
-      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url
-    }));
+    const res=await ytSearch(q,{max:24});
+    lastResults=res.items;
+    if(!lastResults.length){ $('list').innerHTML='<div class="err">Không tìm thấy bài nào cho "'+escapeAttr(q)+'".</div>'; return; }
     renderList();
-    enrichDetails(lastResults,key).then(()=>{        // bổ sung thời lượng + lượt xem
+    /* nguồn dự phòng đã kèm sẵn thời lượng + view nên enrichDetails tự bỏ qua, không tốn thêm quota */
+    enrichDetails(lastResults,getKey()).then(()=>{
       if(tab==='search') renderList();
       try{ localStorage.setItem(ck, JSON.stringify({t:Date.now(), items:lastResults})); }catch(e){}
     });
   }catch(err){
-    $('list').innerHTML='<div class="err">⚠️ Không kết nối được. Kiểm tra mạng rồi thử lại.</div>';
+    $('list').innerHTML='<div class="err">⚠️ Không tìm được lúc này (hết lượt API và các nguồn dự phòng đều bận). Thử lại sau ít phút.</div>';
   }
 }
 
@@ -1520,24 +1647,15 @@ function closePanelSearch(){ const box=$('npSearch'); if(box) box.style.display=
 async function panelSearch(e){
   e.preventDefault();
   const q=$('npQ').value.trim(); if(!q) return;
-  const key=getKey(); if(!key){ openKey(); return; }
   const box=$('npResults');
   box.innerHTML='<div class="rel-empty">Đang tìm…</div>';
   try{
-    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=20&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
-    const r=await fetch(url); const d=await r.json();
-    if(d.error){
-      const reason=(d.error.errors&&d.error.errors[0]&&d.error.errors[0].reason)||'';
-      box.innerHTML='<div class="rel-empty">⚠️ '+(reason==='quotaExceeded'?'Hết lượt tìm miễn phí hôm nay.':'Lỗi tìm kiếm, thử lại.')+'</div>';
-      return;
-    }
-    panelResults=(d.items||[]).filter(it=>it.id&&it.id.videoId).map(it=>({
-      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
-      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url }));
+    const res=await ytSearch(q,{max:20});
+    panelResults=res.items;
     if(!panelResults.length){ box.innerHTML='<div class="rel-empty">Không tìm thấy kết quả.</div>'; return; }
     box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')','panel',i)).join('');
-    enrichDetails(panelResults,key).then(()=>{ box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')','panel',i)).join(''); }); // bổ sung thời lượng + view
-  }catch(err){ box.innerHTML='<div class="rel-empty">Không kết nối được. Kiểm tra mạng.</div>'; }
+    enrichDetails(panelResults,getKey()).then(()=>{ box.innerHTML=panelResults.map((s,i)=>relRowHTML(s,'playPanelResult('+i+')','panel',i)).join(''); });
+  }catch(err){ box.innerHTML='<div class="rel-empty">⚠️ Không tìm được lúc này. Thử lại sau ít phút.</div>'; }
 }
 function playPanelResult(i){
   const s=panelResults[i]; if(!s) return;
@@ -1741,17 +1859,13 @@ window.onYouTubeIframeAPIReady=function(){
 let radio = true, sleepTO = null, sleepMin = 0;
 function toggleRadio(){ radio=!radio; $('radioBtn').classList.toggle('on',radio); $('radioLbl').textContent='Tự phát: '+(radio?'Bật':'Tắt'); toast(radio?'Bật tự phát nhạc liên quan':'Tắt tự phát'); }
 async function loadRelated(){
-  const base=QUEUE[QUEUE.length-1]; const key=getKey(); if(!base||!key){ return; }
+  const base=QUEUE[QUEUE.length-1]; if(!base) return;
   toast('🎵 Đang tìm nhạc liên quan...');
   try{
     const q=base.channel||base.title;
-    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=15&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
-    const r=await fetch(url); const data=await r.json();
-    if(data.error){ toast('Tạm hết nhạc liên quan'); return; }
+    const res=await ytSearch(q,{max:15});
     const have=new Set(QUEUE.map(x=>x.id));
-    const more=(data.items||[]).filter(it=>it.id&&it.id.videoId&&!have.has(it.id.videoId)).map(it=>({
-      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
-      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url }));
+    const more=res.items.filter(x=>!have.has(x.id));
     if(!more.length){ toast('Tạm hết nhạc liên quan'); return; }
     QUEUE_SRC={type:'rel'};                    // đã hết danh sách phát, giờ là nhạc tự nối -> cột phải về video liên quan
     const startAt=QUEUE.length; QUEUE=QUEUE.concat(more); CUR=startAt; playCurrent();
@@ -1918,24 +2032,13 @@ async function loadRelatedList(s){
   try{ const c=JSON.parse(localStorage.getItem('qlm_rel_'+s.id)||'null');
     if(c&&c.items&&c.items.length&&(Date.now()-c.t)<REL_TTL){ renderRelated(c.items); return; }
   }catch(e){}
-  const key=getKey(); if(!key){ box.innerHTML=''; return; }
   box.innerHTML='<div class="rel-empty">Đang tìm video liên quan…</div>';
   try{
     const q=s.channel||cleanTitle(s.title)||s.title;
-    const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=16&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
-    const r=await fetch(url); const d=await r.json();
-    if(d.error){
-      const reason=(d.error.errors&&d.error.errors[0]&&d.error.errors[0].reason)||'';
-      box.innerHTML='<div class="rel-empty">'+(reason==='quotaExceeded'
-        ? '⚠️ Hết lượt API hôm nay nên chưa tải được video liên quan. Thử lại sau (hoặc sang ngày mai).'
-        : 'Không tải được video liên quan.')+'</div>';
-      return;
-    }
-    if(!d.items){ box.innerHTML='<div class="rel-empty">Không có video liên quan.</div>'; return; }
-    const items=d.items.filter(it=>it.id&&it.id.videoId&&it.id.videoId!==s.id).map(it=>({
-      id:it.id.videoId, title:decode(it.snippet.title), channel:decode(it.snippet.channelTitle),
-      thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default).url })).slice(0,14);
-    await enrichDetails(items,key);   // bổ sung thời lượng + lượt xem
+    const res=await ytSearch(q,{max:16});
+    const items=res.items.filter(x=>x.id!==s.id).slice(0,14);
+    if(!items.length){ box.innerHTML='<div class="rel-empty">Không có video liên quan.</div>'; return; }
+    await enrichDetails(items,getKey());   // bổ sung thời lượng + lượt xem (nguồn dự phòng đã có sẵn)
     try{ localStorage.setItem('qlm_rel_'+s.id, JSON.stringify({t:Date.now(),items})); }catch(e){}
     if((QUEUE[CUR]||{}).id===s.id) renderRelated(items);
   }catch(e){ box.innerHTML='<div class="rel-empty">Không tải được video liên quan.</div>'; }
