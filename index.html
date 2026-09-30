@@ -1492,10 +1492,74 @@ const SIDE_QUEUE_SRC = ['pl'];
 let QUEUE_SRC = null;
 function srcOfTab(t){ return t==='plview' ? {type:'pl', id:curPl, name:(plById(curPl)||{}).name||'Danh sách phát'} : {type:t}; }
 
+/* ============ CÙNG MỘT BÀI? ============
+   Tìm "Nơi này có anh" thì kết quả toàn là MV, lyrics, karaoke, cover... của CÙNG một bài.
+   Trước đây hàng chờ = nguyên danh sách kết quả -> hết bài lại phát đúng bài đó bản khác.
+   So bằng tập từ của tiêu đề (bỏ tên kênh, bỏ chữ phụ như remix/tone nam...):
+   từ của tiêu đề ngắn hơn nằm gần hết (>=80%) trong tiêu đề kia -> coi là cùng bài. */
+const SONG_STOP=new Set(('ft feat x vs va and the remix ver version tone nam nu beat acoustic piano guitar sped up slowed reverb 8d '+
+  'nhac tre chill lofi edm cuc hay nhat 2024 2025 2026 official channel mv ep instrumental inst extended mix live performance '+
+  'concert mashup lyric lyrics audio visualizer karaoke cover ban phoi moi nightcore house deep tiktok at full show').split(' '));
+function wordsOf(t,ch){ return lyKey(t).split(' ').filter(w=>w&&!SONG_STOP.has(w)&&!ch.has(w)); }
+function songInfo(s){
+  if(s._si && s._si.k===s.title+'|'+s.channel) return s._si;   // bài chia sẻ đổi tiêu đề sau khi tải -> tính lại
+  const ch=new Set(lyKey(s.channel||'').split(' ').filter(Boolean));
+  /* "Ca sĩ - Tên bài | EP ..." -> từng mảnh (mảnh nào chỉ là tên kênh thì lọc thành rỗng).
+     Bỏ mảnh "Album X - Track No.4" / "EP 'X'": bài nào trong album cũng có -> làm các bài khác nhau trông giống nhau */
+  const parts=(cleanTitle(s.title||'')||s.title||'').split(/\s*[|｜•·]\s*|\s+[-–—]\s+|\s*[\/]\s+/)
+    .filter(x=>!/^[\s\-–—:.,]*(album|ep|track)\b/i.test(noTone(x)));
+  const title=parts.join(' | ');
+  const all=wordsOf(title,ch);   // tên bài 1 chữ ("Mơ") thì chỉ so theo id: thêm tên ca sĩ vào sẽ khớp nhầm mọi bài của ca sĩ đó
+  const segParts=parts.filter(x=>wordsOf(x,ch).length>=2), segs=segParts.map(x=>wordsOf(x,ch));
+  /* tiêu đề có 1 mảnh là tên kênh (= kênh chính chủ, kể cả "OSAD x VRT") thì mảnh đầu còn lại chắc chắn là TÊN BÀI.
+     Kênh tổng hợp (7clouds, NhacPro...) không đoán được mảnh nào là ca sĩ -> bỏ qua. */
+  const hasArtist=ch.size>0 && parts.some(x=>lyKey(x).split(' ').some(v=>ch.has(v)&&!SONG_STOP.has(v)) && wordsOf(x,ch).length<2);
+  const name=(hasArtist&&segs[0])||null;
+  /* tên bài dài (>=4 chữ) rất đặc trưng: thấy nguyên cụm trong tiêu đề khác là cùng bài
+     ("Hươu Thần live như nuốt đĩa hit Ai Chung Tình Được Mãi") */
+  const phrase=(name&&name.length>=4) ? ' '+lyKey(segParts[0])+' ' : null;
+  const si={k:s.title+'|'+s.channel, all:new Set(all), segs, name, phrase, raw:' '+lyKey(s.title||'')+' '};
+  try{ Object.defineProperty(s,'_si',{value:si,enumerable:false,writable:true,configurable:true}); }catch(e){}   // không lọt vào JSON lưu lại
+  return si;
+}
+/* tên bài nằm trọn trong 1 mảnh của tiêu đề kia, mảnh đó không dài hơn (tránh "Album TAM THÁI TỬ" ăn theo bài "Tam Thái Tử") */
+function nameIn(name,segs){ return !!name && segs.some(sg=>sg.length<=name.length+(name.length>=3?1:0) && name.every(w=>sg.indexOf(w)>=0)); }
+function sameSong(a,b){
+  if(!a||!b) return false;
+  if(a.id===b.id) return true;
+  const A=songInfo(a), B=songInfo(b);
+  /* cả tiêu đề: từ của tiêu đề ngắn hơn nằm gần hết trong tiêu đề kia */
+  const small=A.all.size<=B.all.size?A.all:B.all, big=small===A.all?B.all:A.all;
+  /* tiêu đề dài gấp mấy lần (tuyển tập, full show...) thì bỏ qua: tên bài 2 chữ thông dụng như "Em Ơi" chỗ nào cũng có */
+  if(small.size>=2 && big.size<=small.size*2+2){ let hit=0; small.forEach(w=>{ if(big.has(w)) hit++; }); if(hit/small.size>=0.8) return true; }
+  /* hoặc tên bài khớp 1 mảnh bên kia: "Mất Kết Nối (Theron Remix) - Dương Domic | Nỗi nhớ em trong đêm..." */
+  return nameIn(A.name,B.segs) || nameIn(B.name,A.segs) ||
+         (!!A.phrase && B.raw.indexOf(A.phrase)>=0) || (!!B.phrase && A.raw.indexOf(B.phrase)>=0);
+}
+/* bỏ các bản trùng bài khỏi hàng chờ (giữ bài được bấm), trả về {arr, i} mới */
+function dedupeSongs(arr,i){
+  const pick=arr[i], out=pick?[pick]:[];
+  arr.forEach((s,k)=>{ if(k!==i && !out.some(o=>sameSong(o,s))) out.push(s); });
+  const before=arr.slice(0,i).filter(s=>out.indexOf(s)>=0);   // giữ đúng thứ tự gốc
+  const after=arr.slice(i+1).filter(s=>out.indexOf(s)>=0);
+  return pick ? {arr:before.concat([pick],after), i:before.length} : {arr:out, i:0};
+}
+/* nguồn là danh sách người dùng tự xếp (danh sách phát, yêu thích, xem sau) thì giữ nguyên */
+const KEEP_DUP_SRC=['pl','fav','later'];
+
 /* ============ QUEUE / PLAY ============ */
+/* đang xem kết quả người dùng gõ tìm (không phải thịnh hành / chip thể loại)?
+   Tìm 1 bài thì các kết quả còn lại chỉ là bản khác hoặc bài na ná tên -> như YouTube:
+   phát đúng bài đã bấm, hết bài thì tự nối VIDEO LIÊN QUAN. */
+function isSongSearch(){
+  return searchHead.indexOf('🔎')>=0 && !CHIPS.some(c=>searchHead.indexOf('"'+escapeAttr(c)+'"')>=0);
+}
 function playFromList(t,i){
   clearHover();
-  const arr=srcArr(t), src=srcOfTab(t);
+  let arr=srcArr(t); const src=srcOfTab(t);
+  if(src.type==='search' && isSongSearch()){ arr=arr.slice(i,i+1); i=0; }
+  else if(KEEP_DUP_SRC.indexOf(src.type)<0){ const d=dedupeSongs(arr,i); arr=d.arr; i=d.i; }
+  if(arr[i]) src.seed={id:arr[i].id, title:arr[i].title, channel:arr[i].channel};   // bài gốc cho tự phát
   if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(arr,i,src)) return;
   QUEUE_SRC = src;
   QUEUE = arr.slice();
@@ -1551,7 +1615,7 @@ function playCurrent(){
 function next(){
   if(!QUEUE.length) return;
   if(repeat==='one'){ player&&player.seekTo(0); player&&player.playVideo(); return; }
-  if(shuffle){ CUR=Math.floor(Math.random()*QUEUE.length); }
+  if(shuffle && QUEUE.length>1){ let n; do{ n=Math.floor(Math.random()*QUEUE.length); }while(n===CUR); CUR=n; }   // trộn: không bốc lại đúng bài vừa nghe
   else CUR++;
   if(CUR>=QUEUE.length){
     if(repeat==='all'){ CUR=0; }
@@ -1659,8 +1723,9 @@ async function panelSearch(e){
 }
 function playPanelResult(i){
   const s=panelResults[i]; if(!s) return;
-  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(panelResults,i,{type:'panel'})) return;
-  QUEUE_SRC={type:'panel'}; QUEUE=panelResults.slice(); CUR=i; playCurrent();
+  const src={type:'panel', seed:{id:s.id, title:s.title, channel:s.channel}};   // tìm trong panel = tìm 1 bài -> hết bài thì nối video liên quan
+  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack([s],0,src)) return;
+  QUEUE_SRC=src; QUEUE=[s]; CUR=0; playCurrent();
   closePanelSearch(); $('npQ').value='';
   document.querySelector('.np-body').scrollTo({top:0,behavior:'smooth'});
 }
@@ -1858,16 +1923,36 @@ window.onYouTubeIframeAPIReady=function(){
 /* ============ TỰ PHÁT (radio) + HẸN GIỜ + ÂM LƯỢNG ============ */
 let radio = true, sleepTO = null, sleepMin = 0;
 function toggleRadio(){ radio=!radio; $('radioBtn').classList.toggle('on',radio); $('radioLbl').textContent='Tự phát: '+(radio?'Bật':'Tắt'); toast(radio?'Bật tự phát nhạc liên quan':'Tắt tự phát'); }
+/* lọc ứng viên tự phát: bỏ bài đã có trong hàng chờ / vừa nghe gần đây (kể cả bản khác của cùng bài) */
+function freshSongs(items){
+  const heard=QUEUE.concat(getHist().slice(0,30)), out=[];
+  (items||[]).forEach(x=>{ if(!heard.some(h=>sameSong(h,x)) && !out.some(o=>sameSong(o,x))) out.push(x); });
+  return out;
+}
+/* Tự phát bám theo "bài gốc" (bài người dùng tự chọn), KHÔNG theo bài vừa tự nối:
+   tìm theo kênh của bài vừa nối dễ trôi sang kênh reaction / dạy hát... rồi mất hẳn nhạc. */
 async function loadRelated(){
-  const base=QUEUE[QUEUE.length-1]; if(!base) return;
+  const base=QUEUE[CUR]||QUEUE[QUEUE.length-1]; if(!base) return;
+  const seed=(QUEUE_SRC&&QUEUE_SRC.seed)||{id:base.id,title:base.title,channel:base.channel};
   toast('🎵 Đang tìm nhạc liên quan...');
   try{
-    const q=base.channel||base.title;
-    const res=await ytSearch(q,{max:15});
-    const have=new Set(QUEUE.map(x=>x.id));
-    const more=res.items.filter(x=>!have.has(x.id));
+    /* 1) bài khác của ĐÚNG kênh bài gốc. Tìm theo tên kênh hay ra cả ca sĩ trùng tên
+          ("Mono Official" ra Mono Inc., i-dle Mono...) nên chỉ nhận bài đúng kênh.
+          Cột "Video liên quan" đang hiện kết quả tìm theo kênh -> dùng trước, đỡ tốn quota. */
+    const own=x=>!!seed.channel && x.channel===seed.channel;
+    let more=freshSongs(RELATED.filter(own));
+    if(more.length<3 && seed.channel){
+      const res=await ytSearch(seed.channel,{max:20});
+      more=freshSongs(more.concat(res.items.filter(own)));
+    }
+    /* 2) kênh đó nghe hết rồi -> mix / playlist theo ca sĩ, kênh nào cũng được
+          (KHÔNG tìm "<tên bài> mix": ra toàn remix, mashup của chính bài vừa nghe) */
+    if(more.length<3){
+      const res=await ytSearch((seed.channel||cleanTitle(seed.title)||seed.title)+' mix',{max:20});
+      more=freshSongs(more.concat(res.items));
+    }
     if(!more.length){ toast('Tạm hết nhạc liên quan'); return; }
-    QUEUE_SRC={type:'rel'};                    // đã hết danh sách phát, giờ là nhạc tự nối -> cột phải về video liên quan
+    QUEUE_SRC={type:'rel', seed};              // đã hết danh sách phát, giờ là nhạc tự nối -> cột phải về video liên quan
     const startAt=QUEUE.length; QUEUE=QUEUE.concat(more); CUR=startAt; playCurrent();
   }catch(e){ toast('Không tải được nhạc liên quan'); }
 }
@@ -2029,25 +2114,28 @@ function renderRelated(items){
 async function loadRelatedList(s){
   const box=$('relatedList'); if(!box||!s) return;
   if(!s.channel && (!s.title || /^Đang/.test(s.title))) return;   // chưa có thông tin thì khoan tải
-  try{ const c=JSON.parse(localStorage.getItem('qlm_rel_'+s.id)||'null');
+  try{ const c=JSON.parse(localStorage.getItem('qlm_rel2_'+s.id)||'null');
     if(c&&c.items&&c.items.length&&(Date.now()-c.t)<REL_TTL){ renderRelated(c.items); return; }
   }catch(e){}
   box.innerHTML='<div class="rel-empty">Đang tìm video liên quan…</div>';
   try{
     const q=s.channel||cleanTitle(s.title)||s.title;
-    const res=await ytSearch(q,{max:16});
-    const items=res.items.filter(x=>x.id!==s.id).slice(0,14);
+    const res=await ytSearch(q,{max:20});
+    const items=[];                            // bỏ bản khác của chính bài đang nghe + bản trùng nhau
+    res.items.forEach(x=>{ if(!sameSong(s,x) && !items.some(o=>sameSong(o,x))) items.push(x); });
+    items.splice(14);
     if(!items.length){ box.innerHTML='<div class="rel-empty">Không có video liên quan.</div>'; return; }
     await enrichDetails(items,getKey());   // bổ sung thời lượng + lượt xem (nguồn dự phòng đã có sẵn)
-    try{ localStorage.setItem('qlm_rel_'+s.id, JSON.stringify({t:Date.now(),items})); }catch(e){}
+    try{ localStorage.setItem('qlm_rel2_'+s.id, JSON.stringify({t:Date.now(),items})); }catch(e){}
     if((QUEUE[CUR]||{}).id===s.id) renderRelated(items);
   }catch(e){ box.innerHTML='<div class="rel-empty">Không tải được video liên quan.</div>'; }
 }
 function playRelated(i){
   const s=RELATED[i]; if(!s) return;
   const arr=QUEUE.concat([s]);
-  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(arr,arr.length-1,{type:'rel'})) return;   // đã rời danh sách phát -> quay về video liên quan
-  QUEUE_SRC={type:'rel'}; QUEUE.push(s); CUR=QUEUE.length-1; playCurrent(); openPanel();
+  const src={type:'rel', seed:{id:s.id, title:s.title, channel:s.channel}};   // người dùng tự chọn -> thành bài gốc mới cho tự phát
+  if(RELOAD_ON_TRACK_CHANGE && reloadToTrack(arr,arr.length-1,src)) return;   // đã rời danh sách phát -> quay về video liên quan
+  QUEUE_SRC=src; QUEUE.push(s); CUR=QUEUE.length-1; playCurrent(); openPanel();
 }
 
 /* ============ CHIA SẺ ============ */
@@ -2194,7 +2282,8 @@ function saveSession(){
   try{ if(navToTrack) return;              // đang chuyển sang bài vừa chọn -> tuyệt đối không ghi đè
     if(!QUEUE.length||CUR<0) return;
     const t=(player&&player.getCurrentTime)?(player.getCurrentTime()||0):0;
-    localStorage.setItem(LS.last, JSON.stringify({q:QUEUE.slice(0,80), c:CUR, t:t, src:QUEUE_SRC}));
+    const st=Math.max(0,CUR-40);             // tự phát lâu thì hàng chờ > 80 bài: cắt quanh bài đang phát, không thì CUR lệch ra ngoài
+    localStorage.setItem(LS.last, JSON.stringify({q:QUEUE.slice(st,st+80), c:CUR-st, t:t, src:QUEUE_SRC}));
   }catch(e){}
 }
 function restoreSession(){
