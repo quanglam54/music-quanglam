@@ -1147,7 +1147,7 @@ async function ytSearch(q,opt){
   for(const key of liveKeys()){
     try{
       const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true'+
-                (live?'&eventType=live':'')+'&maxResults='+max+'&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+                (live?'&eventType=live':'')+(opt.music?'&videoCategoryId=10':'')+'&maxResults='+max+'&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
       const r=await fetchTO(url,9000); const d=await r.json();
       if(d.error){
         if(isQuotaErr(d.error,r.status)){ markKeyDead(key); sawQuota=true; continue; }  // key này cạn -> thử key sau
@@ -1936,21 +1936,17 @@ async function loadRelated(){
   const seed=(QUEUE_SRC&&QUEUE_SRC.seed)||{id:base.id,title:base.title,channel:base.channel};
   toast('🎵 Đang tìm nhạc liên quan...');
   try{
-    /* 1) bài khác của ĐÚNG kênh bài gốc. Tìm theo tên kênh hay ra cả ca sĩ trùng tên
-          ("Mono Official" ra Mono Inc., i-dle Mono...) nên chỉ nhận bài đúng kênh.
-          Cột "Video liên quan" đang hiện kết quả tìm theo kênh -> dùng trước, đỡ tốn quota. */
-    const own=x=>!!seed.channel && x.channel===seed.channel;
-    let more=freshSongs(RELATED.filter(own));
-    if(more.length<3 && seed.channel){
-      const res=await ytSearch(seed.channel,{max:20});
-      more=freshSongs(more.concat(res.items.filter(own)));
-    }
-    /* 2) kênh đó nghe hết rồi -> mix / playlist theo ca sĩ, kênh nào cũng được
-          (KHÔNG tìm "<tên bài> mix": ra toàn remix, mashup của chính bài vừa nghe) */
+    /* 1) danh sách "Tiếp theo" thật của YouTube cho bài gốc (+ bài vừa nghe), xếp hạng lại theo
+          độ gần BÀI GỐC và kênh hay nghe -> không trôi dần sang video chẳng liên quan */
+    let pool=await relatedFor(seed);
+    if(base.id!==seed.id) pool=pool.concat(await relatedFor(base));
+    let more=freshSongs(rankRelated(pool,seed));
+    /* 2) nghe hết rồi -> tìm theo tên bài/album gốc, chỉ lấy video thể loại Âm nhạc */
     if(more.length<3){
-      const res=await ytSearch((seed.channel||cleanTitle(seed.title)||seed.title)+' mix',{max:20});
-      more=freshSongs(more.concat(res.items));
+      const res=await ytSearch(relQuery(seed),{max:20,music:true});
+      more=freshSongs(more.concat(rankRelated(res.items,seed)));
     }
+    more=more.slice(0,10);
     if(!more.length){ toast('Tạm hết nhạc liên quan'); return; }
     QUEUE_SRC={type:'rel', seed};              // đã hết danh sách phát, giờ là nhạc tự nối -> cột phải về video liên quan
     const startAt=QUEUE.length; QUEUE=QUEUE.concat(more); CUR=startAt; playCurrent();
@@ -2111,23 +2107,77 @@ function renderRelated(items){
   if(!RELATED.length){ box.innerHTML='<div class="rel-empty">Chưa có video liên quan.</div>'; return; }
   box.innerHTML=RELATED.map((s,i)=>relRowHTML(s,'playRelated('+i+')','rel',i)).join('');
 }
+/* Danh sách "Tiếp theo" THẬT của YouTube cho 1 video — lấy qua mirror, 0 quota.
+   (YouTube Data API đã bỏ tìm theo relatedToVideoId; trước đây tìm theo TÊN KÊNH nên kênh "Luu Mon"
+   ra toàn "Cửu Lưu Môn", "Lưu Bang"...). Piped hay bị YouTube chặn trang xem video -> thử Invidious trước. */
+async function ytRelated(id){
+  const order=FALLBACK_SRC.filter(x=>x.t==='inv').concat(FALLBACK_SRC.filter(x=>x.t==='piped'));
+  for(const src of order){
+    try{
+      let it=[];
+      if(src.t==='inv'){
+        const d=await (await fetchTO(src.u+'/api/v1/videos/'+id+'?fields=recommendedVideos',9000)).json();
+        it=(d.recommendedVideos||[]).filter(x=>x&&x.videoId).map(x=>({ id:x.videoId, title:decode(x.title||''), channel:decode(x.author||''),
+             thumb:ytThumb(x.videoId), dur:(x.lengthSeconds>0?x.lengthSeconds:null), views:+x.viewCount||0 }));
+      }else{
+        const d=await (await fetchTO(src.u+'/streams/'+id,9000)).json();
+        it=(d.relatedStreams||[]).filter(x=>x&&x.type==='stream'&&x.url&&/[?&]v=/.test(x.url)).map(x=>{ const v=x.url.match(/[?&]v=([^&]+)/)[1];
+             return { id:v, title:decode(x.title||''), channel:decode(x.uploaderName||''), thumb:ytThumb(v), dur:(x.duration>0?x.duration:null), views:+x.views||0 }; });
+      }
+      if(it.length) return it;
+    }catch(e){ /* nguồn này chết / bị chặn -> thử nguồn sau */ }
+  }
+  return [];
+}
+/* chuỗi tìm dự phòng: tên bài/album (2 mảnh đầu của tiêu đề), KHÔNG dùng tên kênh */
+function relQuery(s){
+  const base=cleanTitle(s.title)||s.title||'';
+  const segs=base.split(/\s*[|｜•·]+\s*|\s+[-–—]\s+/).map(x=>x.trim()).filter(x=>x.length>1);
+  return (segs.slice(0,2).join(' ')||base||s.channel||'').trim();
+}
+function relWords(t){ return ' '+noTone(t||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' '; }
+const MUSIC_WORDS=('ost mv lyrics lyric audio playlist album nhac song songs cover remix acoustic karaoke vietsub ballad lofi ft feat '+
+  'beat bolero piano instrumental mix official music topic soundtrack kpop vpop rap live session').split(' ');
+/* xếp hạng video liên quan theo: có phải nhạc không, gần bài gốc không, có phải kênh em hay nghe không.
+   Video không phải nhạc (talk show, game, tin tức...) bị loại nếu còn đủ bài khác. */
+function isMusicVid(x){ const k=relWords(x.title+' '+x.channel); return MUSIC_WORDS.some(w=>k.indexOf(' '+w+' ')>=0) || /\s[-–—|｜]\s/.test(x.title||''); }
+function rankRelated(items,seed){
+  const histCh={}; getHist().slice(0,40).forEach(h=>{ if(h.channel) histCh[h.channel]=(histCh[h.channel]||0)+1; });
+  const seedW=relWords(cleanTitle(seed.title)).trim().split(' ').filter(w=>w.length>2&&!SONG_STOP.has(w)&&MUSIC_WORDS.indexOf(w)<0);
+  const scored=(items||[]).map((x,i)=>{
+    const k=relWords(x.title+' '+x.channel), music=isMusicVid(x);
+    let hit=0; seedW.forEach(w=>{ if(k.indexOf(' '+w+' ')>=0) hit++; });
+    const sc=(music?2:0) + Math.min(3,hit) + (seed.channel&&x.channel===seed.channel?2:0) + Math.min(3,histCh[x.channel]||0);
+    return {x,i,sc,ok:music||hit>=2};
+  });
+  const good=scored.filter(o=>o.ok), pick=good.length>=5?good:scored;   // ít bài quá thì giữ cả, nhưng video không phải nhạc xuống cuối
+  return pick.sort((a,b)=>(b.ok-a.ok)||b.sc-a.sc||a.i-b.i).map(o=>o.x);
+}
+/* video liên quan của 1 bài (nhớ 24h). Cache lưu bản CHƯA xếp hạng -> mỗi lần mở lại xếp theo lịch sử nghe mới nhất */
+async function relatedFor(s){
+  try{ const c=JSON.parse(localStorage.getItem('qlm_rel3_'+s.id)||'null');
+    if(c&&c.items&&c.items.length&&(Date.now()-c.t)<REL_TTL) return rankRelated(c.items,s);
+  }catch(e){}
+  let raw=await ytRelated(s.id);
+  /* YouTube đề xuất ít bài nhạc quá -> tìm thêm theo tên bài (thể loại Âm nhạc) */
+  if(raw.filter(isMusicVid).length<8){ try{ const res=await ytSearch(relQuery(s),{max:20,music:true}); raw=raw.concat(res.items); }catch(e){} }
+  const items=[];                            // bỏ bản khác của chính bài đang nghe + bản trùng nhau
+  raw.forEach(x=>{ if(!sameSong(s,x) && !items.some(o=>sameSong(o,x))) items.push(x); });
+  items.splice(20);
+  if(!items.length) return [];
+  await enrichDetails(items,getKey());       // bổ sung thời lượng + lượt xem (nguồn mirror đã có sẵn)
+  try{ localStorage.setItem('qlm_rel3_'+s.id, JSON.stringify({t:Date.now(),items})); }catch(e){}
+  return rankRelated(items,s);
+}
 async function loadRelatedList(s){
   const box=$('relatedList'); if(!box||!s) return;
   if(!s.channel && (!s.title || /^Đang/.test(s.title))) return;   // chưa có thông tin thì khoan tải
-  try{ const c=JSON.parse(localStorage.getItem('qlm_rel2_'+s.id)||'null');
-    if(c&&c.items&&c.items.length&&(Date.now()-c.t)<REL_TTL){ renderRelated(c.items); return; }
-  }catch(e){}
   box.innerHTML='<div class="rel-empty">Đang tìm video liên quan…</div>';
   try{
-    const q=s.channel||cleanTitle(s.title)||s.title;
-    const res=await ytSearch(q,{max:20});
-    const items=[];                            // bỏ bản khác của chính bài đang nghe + bản trùng nhau
-    res.items.forEach(x=>{ if(!sameSong(s,x) && !items.some(o=>sameSong(o,x))) items.push(x); });
-    items.splice(14);
+    const items=(await relatedFor(s)).slice(0,14);
+    if((QUEUE[CUR]||{}).id!==s.id) return;   // đã chuyển bài khác trong lúc chờ
     if(!items.length){ box.innerHTML='<div class="rel-empty">Không có video liên quan.</div>'; return; }
-    await enrichDetails(items,getKey());   // bổ sung thời lượng + lượt xem (nguồn dự phòng đã có sẵn)
-    try{ localStorage.setItem('qlm_rel2_'+s.id, JSON.stringify({t:Date.now(),items})); }catch(e){}
-    if((QUEUE[CUR]||{}).id===s.id) renderRelated(items);
+    renderRelated(items);
   }catch(e){ box.innerHTML='<div class="rel-empty">Không tải được video liên quan.</div>'; }
 }
 function playRelated(i){
