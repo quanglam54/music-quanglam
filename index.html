@@ -1357,7 +1357,8 @@ function isFav(id){ return getFavs().some(f=>f.id===id); }
 /* ============ PLAYLIST TỰ TẠO ============ */
 function getPlaylists(){ try{ return JSON.parse(localStorage.getItem(LS.playlists)||'[]'); }catch(e){ return []; } }
 function savePlaylists(a){ localStorage.setItem(LS.playlists, JSON.stringify(a)); renderDrPlaylists(); }
-function newId(){ return 'p'+(getPlaylists().reduce((m,p)=>Math.max(m,+String(p.id||'p0').slice(1)||0),0)+1); }
+/* id ngẫu nhiên — tránh trùng "p1" giữa các máy khi đồng bộ cloud */
+function newId(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function createPlaylist(name){ const pls=getPlaylists(); const p={id:newId(),name:(name||'').trim()||('Playlist '+(pls.length+1)),tracks:[]}; pls.unshift(p); savePlaylists(pls); return p; }
 function plById(id){ return getPlaylists().find(p=>p.id===id); }
 function delPlaylist(id){ if(!confirm('Xoá playlist này?')) return; savePlaylists(getPlaylists().filter(p=>p.id!==id)); nav('playlists'); }
@@ -2778,14 +2779,20 @@ function mergeList(local, cloud, cap){
   }
   return cap ? out.slice(0,cap) : out;
 }
-/* gộp playlist theo id; playlist trùng id thì gộp danh sách bài trong đó */
+/* gộp playlist theo id; playlist trùng id + trùng tên thì gộp danh sách bài trong đó.
+   Trùng id nhưng khác tên = 2 playlist khác nhau tạo trên 2 máy (id cũ kiểu p1,p2) -> giữ cả hai. */
 function mergePlaylists(local, cloud){
   const map=new Map();
   for(const p of (local||[])) if(p&&p.id) map.set(p.id, {id:p.id, name:p.name, tracks:(p.tracks||[]).slice()});
   for(const p of (cloud||[])){
     if(!p||!p.id) continue;
-    if(!map.has(p.id)) map.set(p.id, {id:p.id, name:p.name, tracks:(p.tracks||[]).slice()});
-    else{ const ex=map.get(p.id); ex.tracks = mergeList(ex.tracks, p.tracks); }
+    const ex=map.get(p.id);
+    if(!ex) map.set(p.id, {id:p.id, name:p.name, tracks:(p.tracks||[]).slice()});
+    else if(ex.name===p.name) ex.tracks = mergeList(ex.tracks, p.tracks);
+    else{
+      const nid=p.id+'_'+Math.random().toString(36).slice(2,7);
+      map.set(nid, {id:nid, name:p.name, tracks:(p.tracks||[]).slice()});
+    }
   }
   return [...map.values()];
 }
@@ -2796,10 +2803,18 @@ function refreshUI(){
 }
 
 /* tải cloud -> gộp với máy -> lưu cả 2 nơi -> vẽ lại giao diện */
+let synced=false, pullTry=0;   /* chưa kéo cloud về xong thì KHÔNG được ghi lên cloud (tránh đè mất dữ liệu) */
 async function pullAndMerge(uid){
   let cloud={};
   try{ const snap=await getDoc(doc(db,'users',uid)); if(snap.exists()) cloud=snap.data()||{}; }
-  catch(e){ console.warn('[sync] tải cloud lỗi:', e); }
+  catch(e){
+    /* tải lỗi -> tuyệt đối không đẩy dữ liệu máy lên (sẽ xoá dữ liệu cloud), thử lại sau */
+    console.warn('[sync] tải cloud lỗi, thử lại sau:', e);
+    if(currentUid===uid) setTimeout(()=>{ if(currentUid===uid) pullAndMerge(uid); }, Math.min(30000, 2000*(++pullTry)));
+    return;
+  }
+  if(currentUid!==uid) return;
+  pullTry=0;
   const mFavs = mergeList(lsGet(LS_FAVS),  cloud.favs);
   const mLater= mergeList(lsGet(LS_LATER), cloud.later);
   const mHist = mergeList(lsGet(LS_HIST),  cloud.hist, 60);
@@ -2808,23 +2823,31 @@ async function pullAndMerge(uid){
   lsSet(LS_FAVS,mFavs); lsSet(LS_LATER,mLater); lsSet(LS_HIST,mHist); lsSet(LS_PLS,mPls);
   try{ localStorage.setItem('qlm_lyrics', JSON.stringify(mLy)); }catch(e){}
   refreshUI();
+  synced=true; pending={};      /* bản gộp bên dưới đã chứa mọi thay đổi đang chờ */
   try{ await setDoc(doc(db,'users',uid), {favs:mFavs, later:mLater, hist:mHist, playlists:mPls, lyrics:mLy, updatedAt:Date.now()}, {merge:true}); }
   catch(e){ console.warn('[sync] đẩy cloud lỗi:', e); }
 }
 
 /* đẩy lên cloud — gộp nhiều thay đổi, chờ ~1s ghi 1 lần */
 let pushTimer=null, pending={};
+function flushPush(){
+  clearTimeout(pushTimer); pushTimer=null;
+  if(!currentUid || !synced || !Object.keys(pending).length) return;
+  const data=pending; pending={}; data.updatedAt=Date.now();
+  setDoc(doc(db,'users',currentUid), data, {merge:true}).catch(e=>console.warn('[sync] ghi cloud lỗi:', e));
+}
 function queuePush(field, value){
-  if(!currentUid) return;
+  if(!currentUid || !synced) return;   /* chưa đồng bộ xong: thay đổi đã nằm ở máy, sẽ được gộp & đẩy trong pullAndMerge */
   pending[field]=value;
   clearTimeout(pushTimer);
-  pushTimer=setTimeout(async ()=>{
-    if(!currentUid) return;
-    const data=pending; pending={}; data.updatedAt=Date.now();
-    try{ await setDoc(doc(db,'users',currentUid), data, {merge:true}); }
-    catch(e){ console.warn('[sync] ghi cloud lỗi:', e); }
-  }, 1000);
+  pushTimer=setTimeout(flushPush, 1000);
 }
+/* đóng tab / chuyển app trong vòng 1s sau khi lưu -> vẫn đẩy kịp; quay lại tab -> kéo dữ liệu mới từ máy khác */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='hidden') flushPush();
+  else if(currentUid && synced) pullAndMerge(currentUid);
+});
+window.addEventListener('pagehide', flushPush);
 
 /* "móc" vào các hàm lưu sẵn có để tự đẩy lên cloud */
 function wrapSaver(name, field, getValue){
@@ -2847,8 +2870,9 @@ onAuthStateChanged(auth, user => {
   const av=$id('userAvatar');
   window.QLM_USER = user || null;
   if(user){
+    if(currentUid!==user.uid) synced=false;
     currentUid = user.uid;
-    const name  = user.displayName || (user.email ? user.email.split('@')[0] : 'Bạn');
+    const name = user.displayName || (user.email ? user.email.split('@')[0] : 'Bạn');
     const letter= (name[0]||'?').toUpperCase();
     const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#c2a06b"/><text x="40" y="54" font-size="42" text-anchor="middle" fill="#191919" font-family="sans-serif" font-weight="700">'+letter+'</text></svg>');
     const photo = user.photoURL || fallback;
@@ -2863,7 +2887,7 @@ onAuthStateChanged(auth, user => {
       [LS_FAVS,LS_LATER,LS_HIST,LS_PLS].forEach(k=>localStorage.removeItem(k));
       refreshUI();
     }
-    currentUid=null;
+    currentUid=null; synced=false; pending={}; clearTimeout(pushTimer);
     if(av){ av.src=DEFAULT_AVATAR; av.onerror=null; av.title='Đăng nhập'; }
   }
   window._authReady = true;
