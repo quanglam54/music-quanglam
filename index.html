@@ -551,6 +551,30 @@
   .modal-box .save{width:100%;background:var(--accent);color:#191919;font-weight:600;padding:13px;border-radius:12px;margin-top:14px;transition:.18s}
   .modal-box .save:hover{background:var(--accent-d)}
   .modal-box .close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;background:var(--bg3);color:var(--muted);display:grid;place-items:center}
+  #dlgModal .modal-box{max-width:400px;padding:28px 24px 22px;animation:dlgIn .22s cubic-bezier(.2,.9,.3,1.2)}
+  #dlgModal .modal-bg{animation:dlgFade .2s ease}
+  @keyframes dlgIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+  @keyframes dlgFade{from{opacity:0}to{opacity:1}}
+  .dlg-ic{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:1.5rem;margin-bottom:16px;
+    background:var(--accent-soft);color:var(--accent);border:1px solid rgba(194,160,107,.28)}
+  .dlg-ic.danger{background:rgba(229,83,75,.12);color:#e5534b;border-color:rgba(229,83,75,.3)}
+  #dlgModal h3{margin-bottom:6px}
+  #dlgModal .sub{margin-bottom:18px;line-height:1.5}
+  #dlgModal .sub:empty{display:none}
+  .dlg-field{position:relative;margin-bottom:4px}
+  .dlg-field input{padding-right:58px}
+  .dlg-count{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:.75rem;color:var(--muted);pointer-events:none}
+  .dlg-btns{display:flex;gap:10px;margin-top:20px}
+  .dlg-btns button{flex:1;padding:12px;border-radius:12px;font-weight:600;font-size:.93rem;transition:.16s}
+  .dlg-cancel{background:var(--bg3);color:var(--text);border:1px solid var(--line)}
+  .dlg-cancel:hover{background:var(--bg4)}
+  .dlg-ok{background:var(--accent);color:#191919}
+  .dlg-ok:hover{background:var(--accent-d)}
+  .dlg-btns button:focus{outline:none}
+  .dlg-btns button:focus-visible{box-shadow:0 0 0 2px var(--bg2),0 0 0 4px var(--accent)}
+  .dlg-ok:disabled{opacity:.45;cursor:not-allowed}
+  .dlg-ok.danger{background:#e5534b;color:#fff}
+  .dlg-ok.danger:hover{background:#c9433c}
   .note-warn{background:var(--accent-soft);border:1px solid rgba(194,160,107,.3);border-radius:11px;padding:11px 13px;font-size:.82rem;color:#d8c39e;margin-top:14px}
 
   .toast{position:fixed;left:50%;bottom:calc(var(--bar-h) + 18px);transform:translateX(-50%) translateY(20px);
@@ -901,6 +925,23 @@
 </div>
 
 <!-- SHEET: LƯU VÀO PLAYLIST -->
+<div class="modal" id="dlgModal" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+  <div class="modal-bg" onclick="dlgClose(false)"></div>
+  <div class="modal-box">
+    <div class="dlg-ic" id="dlgIc">🎵</div>
+    <h3 id="dlgTitle"></h3>
+    <div class="sub" id="dlgSub"></div>
+    <div class="dlg-field" id="dlgField">
+      <input id="dlgInput" type="text" maxlength="60" autocomplete="off">
+      <span class="dlg-count" id="dlgCount"></span>
+    </div>
+    <div class="dlg-btns">
+      <button class="dlg-cancel" onclick="dlgClose(false)">Huỷ</button>
+      <button class="dlg-ok" id="dlgOk" onclick="dlgClose(true)">OK</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="plSheet">
   <div class="modal-bg" onclick="closeSheet()"></div>
   <div class="modal-box">
@@ -1361,9 +1402,51 @@ function savePlaylists(a){ localStorage.setItem(LS.playlists, JSON.stringify(a))
 function newId(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function createPlaylist(name){ const pls=getPlaylists(); const p={id:newId(),name:(name||'').trim()||('Playlist '+(pls.length+1)),tracks:[]}; pls.unshift(p); savePlaylists(pls); return p; }
 function plById(id){ return getPlaylists().find(p=>p.id===id); }
-function delPlaylist(id){ if(!confirm('Xoá playlist này?')) return; savePlaylists(getPlaylists().filter(p=>p.id!==id)); nav('playlists'); }
+let dlgResolve=null, dlgHasInput=false;
+function qlmDialog(o){
+  if(dlgResolve) dlgResolve(null);
+  dlgHasInput=!!o.input;
+  $('dlgIc').textContent=o.icon||'🎵';
+  $('dlgIc').classList.toggle('danger',!!o.danger);
+  $('dlgTitle').textContent=o.title||'';
+  $('dlgSub').textContent=o.sub||'';
+  $('dlgField').style.display=dlgHasInput?'':'none';
+  const inp=$('dlgInput'), ok=$('dlgOk');
+  ok.textContent=o.ok||'OK'; ok.classList.toggle('danger',!!o.danger);
+  if(dlgHasInput){
+    inp.value=o.value||''; inp.placeholder=o.placeholder||'';
+    const upd=()=>{ $('dlgCount').textContent=inp.value.length+'/'+inp.maxLength; ok.disabled=o.required&&!inp.value.trim(); };
+    inp.oninput=upd; upd();
+  }else ok.disabled=false;
+  $('dlgModal').classList.add('open');
+  setTimeout(()=>{ (dlgHasInput?inp:o.danger?document.querySelector('.dlg-cancel'):ok).focus(); if(dlgHasInput) inp.select(); },50);
+  return new Promise(r=>{ dlgResolve=r; });
+}
+function dlgClose(ok){
+  if(!dlgResolve) return;
+  if(ok&&$('dlgOk').disabled) return;
+  const r=dlgResolve; dlgResolve=null;
+  $('dlgModal').classList.remove('open');
+  r(ok?(dlgHasInput?$('dlgInput').value:true):(dlgHasInput?null:false));
+}
+document.addEventListener('keydown',e=>{
+  if(!dlgResolve) return;
+  if(e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); dlgClose(false); }
+  else if(e.key==='Enter'){ e.preventDefault(); e.stopImmediatePropagation(); dlgClose(document.activeElement!==document.querySelector('.dlg-cancel')); }
+},true);
+
+async function delPlaylist(id){
+  const p=plById(id);
+  const ok=await qlmDialog({icon:'🗑️',danger:true,title:'Xoá playlist?',sub:'"'+(p?p.name:'')+'" sẽ bị xoá vĩnh viễn. Không thể hoàn tác.',ok:'Xoá'});
+  if(!ok) return;
+  savePlaylists(getPlaylists().filter(p=>p.id!==id)); nav('playlists'); toast('Đã xoá playlist');
+}
 function openPlaylist(id){ curPl=id; tab='plview'; switchTabUI(); closeDrawer(); window.scrollTo({top:0,behavior:'smooth'}); renderList(); }
-function quickCreatePl(){ const name=prompt('Tên playlist mới:'); if(name===null) return; const p=createPlaylist(name); openPlaylist(p.id); }
+async function quickCreatePl(){
+  const name=await qlmDialog({icon:'🎵',title:'Tạo playlist mới',sub:'Đặt tên cho bộ sưu tập nhạc của bạn.',input:true,placeholder:'VD: Nhạc chill cuối tuần',ok:'Tạo playlist',required:true});
+  if(name===null) return;
+  const p=createPlaylist(name); openPlaylist(p.id); toast('Đã tạo "'+p.name+'" ✓');
+}
 function renderDrPlaylists(){
   const box=$('drPlaylists'); if(!box) return;
   box.innerHTML = getPlaylists().map(p=>`<button class="dr-pl" onclick="openPlaylist('${p.id}')"><span class="ic">🎵</span><span>${escapeAttr(p.name)}</span></button>`).join('')
