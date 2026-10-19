@@ -2435,6 +2435,7 @@ function restoreSession(){
     curIsLive=!!s.live; document.body.classList.toggle('is-live',!!s.live);
     openPanel(); pushHistory(s); checkLive(s.id); paintSide(s);
   } else {                                    // mở lại web sau khi thoát: chờ người dùng bấm phát
+    paintSide(s);
     setTimeout(()=>toast('Tiếp tục từ chỗ bạn dừng nghe ▶'), 800);
   }
 }
